@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>교육환경 위치도</title>
-<script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=880g164msx"></script>
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7.2.0/turf.min.js"></script>
 <style>
 :root{
@@ -13,7 +12,10 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
-  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;font-size:15px}
+  font-family:var(--font,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif);font-size:15px}
+button,input,select{font-family:inherit}
+#mapMsg{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);z-index:20;display:none;
+  background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;font-size:14px;line-height:1.6;box-shadow:0 2px 10px rgba(0,0,0,.1)}
 #app{display:flex;flex-direction:column;height:100%}
 #mapWrap{position:relative;height:56vh;min-height:300px;flex:none}
 #map{position:absolute;inset:0}
@@ -67,7 +69,7 @@ table{border-collapse:collapse;width:100%;font-size:13px;margin-top:6px}
 th,td{border:1px solid var(--line);padding:6px;text-align:center;vertical-align:middle}
 th{background:var(--soft);font-weight:600}
 .sumbox{background:var(--soft);border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.6}
-.iw{padding:10px 12px;font-size:13px;line-height:1.5;max-width:240px}
+.iw{font-family:var(--font,inherit);padding:10px 12px;font-size:13px;line-height:1.5;max-width:240px}
 .iw b{font-size:14px}
 </style>
 </head>
@@ -75,6 +77,7 @@ th{background:var(--soft);font-weight:600}
 <div id="app">
   <div id="mapWrap">
     <div id="map"></div>
+    <div id="mapMsg"></div>
     <div class="top">
       <div class="searchRow">
         <input id="q" placeholder="주소·지번·학교 이름 검색" enterkeyhint="search">
@@ -95,7 +98,12 @@ th{background:var(--soft);font-weight:600}
   <div id="panel">
     <div class="head">
       <h1>교육환경 위치도</h1>
-      <button class="btn sm" id="resetBtn">새로 시작</button>
+      <div class="row"><button class="btn sm" id="setBtn">글씨</button><button class="btn sm" id="resetBtn">새로 시작</button></div>
+    </div>
+    <div class="card" id="setCard" style="display:none">
+      <div class="row"><b style="width:56px">글씨체</b><select id="fontSel" style="flex:1"></select></div>
+      <div class="row" style="margin-top:8px"><b style="width:56px">크기</b>
+        <select id="sizeSel" style="flex:1"><option value="13">작게</option><option value="15">보통</option><option value="17">크게</option><option value="19">아주 크게</option></select></div>
     </div>
     <div class="muted">지도를 누르면 그 자리 필지의 지번·지목·용도지역·공시지가가 나와요. 거리·면적은 도면 기준 참고값이에요.</div>
 
@@ -118,7 +126,8 @@ th{background:var(--soft);font-weight:600}
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.1";
+const NAVER_ID = "880g164msx";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const STORE = "eduMap.v1";
@@ -252,12 +261,26 @@ function areaOf(Gs){ return Gs.reduce((s,g) => s + turf.area(turf.feature(g)), 0
 let map, cadLayer, zoneOverlay = null, zoneOn = false, infoWin, drawn = [];
 let mode = null; // null | {type:'project'} | {type:'school', id} | {type:'gate', id}
 
+function mapMsg(html){ const d = $("#mapMsg"); d.innerHTML = html; d.style.display = "block"; }
+function nvParam(){ try { return sessionStorage.getItem("nvParam") || "ncpKeyId"; } catch(e){ return "ncpKeyId"; } }
+// 키 형식이 맞지 않으면 다른 형식(ncpClientId)으로 한 번 더 시도
 window.navermap_authFailure = function(){
-  toast("네이버 지도 인증 실패 — 네이버 클라우드 콘솔에 이 주소가 Web 서비스 URL로 등록돼 있는지 확인해 주세요", 8000);
+  if (nvParam() === "ncpKeyId"){
+    try { sessionStorage.setItem("nvParam", "ncpClientId"); location.reload(); return; } catch(e){}
+  }
+  try { sessionStorage.removeItem("nvParam"); } catch(e){}
+  mapMsg(`<b>네이버 지도 인증 실패</b><br>네이버 클라우드 콘솔 → Maps → Application(Client ID <b>${NAVER_ID}</b>) → 수정 → <b>Web 서비스 URL</b>에<br><b>${esc(location.origin)}</b><br>이 등록돼 있는지, Dynamic Map이 체크돼 있는지 확인해 주세요.`);
 };
+function loadNaver(){
+  const s = document.createElement("script");
+  s.src = `https://oapi.map.naver.com/openapi/v3/maps.js?${nvParam()}=${NAVER_ID}`;
+  s.onload = initMap;
+  s.onerror = () => mapMsg("<b>네이버 지도를 불러오지 못했어요</b><br>인터넷 연결을 확인하고 새로고침해 주세요.");
+  document.head.appendChild(s);
+}
 
 function initMap(){
-  if (!window.naver || !naver.maps){ toast("네이버 지도를 불러오지 못했어요", 6000); return; }
+  if (!window.naver || !naver.maps || !naver.maps.Map){ mapMsg("<b>네이버 지도를 불러오지 못했어요</b><br>새로고침해 주세요."); return; }
   map = new naver.maps.Map("map", {
     center: new naver.maps.LatLng(37.5665, 126.9780), zoom: 16,
     scaleControl: true, mapDataControl: false, logoControlOptions:{ position: naver.maps.Position.BOTTOM_LEFT },
@@ -514,7 +537,37 @@ async function doSearch(){
 $("#qBtn").onclick = doSearch;
 $("#q").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
 
-if (window.naver && naver.maps) initMap(); else window.addEventListener("load", initMap);
+/* ===== 글씨 설정 ===== */
+const GF = f => `https://fonts.googleapis.com/css2?family=${f}&display=swap`;
+const FONTS = [
+  { id:"sys",    name:"기본 (아이폰 글씨)", fam:'-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif' },
+  { id:"pre",    name:"프리텐다드",        fam:'"Pretendard",sans-serif', css:"https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" },
+  { id:"noto",   name:"본고딕 (Noto Sans)", fam:'"Noto Sans KR",sans-serif', css:GF("Noto+Sans+KR:wght@400;600;700") },
+  { id:"nanum",  name:"나눔고딕",          fam:'"Nanum Gothic",sans-serif', css:GF("Nanum+Gothic:wght@400;700;800") },
+  { id:"square", name:"IBM 플렉스 산스",    fam:'"IBM Plex Sans KR",sans-serif', css:GF("IBM+Plex+Sans+KR:wght@400;600;700") },
+  { id:"gowun",  name:"고운돋움",          fam:'"Gowun Dodum",sans-serif', css:GF("Gowun+Dodum") },
+  { id:"myeong", name:"나눔명조",          fam:'"Nanum Myeongjo",serif', css:GF("Nanum+Myeongjo:wght@400;700;800") }
+];
+let ui = { font:"sys", size:15 };
+try { ui = { ...ui, ...JSON.parse(localStorage.getItem("eduMap.ui") || "{}") }; } catch(e){}
+function applyUI(){
+  const f = FONTS.find(x => x.id === ui.font) || FONTS[0];
+  if (f.css && !document.querySelector(`link[data-font="${f.id}"]`)){
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = f.css; l.dataset.font = f.id; document.head.appendChild(l);
+  }
+  document.documentElement.style.setProperty("--font", f.fam);
+  $("#panel").style.zoom = ui.size / 15;
+  try { localStorage.setItem("eduMap.ui", JSON.stringify(ui)); } catch(e){}
+}
+$("#fontSel").innerHTML = FONTS.map(f => `<option value="${f.id}">${f.name}</option>`).join("");
+$("#fontSel").value = ui.font; $("#sizeSel").value = String(ui.size);
+$("#fontSel").onchange = e => { ui.font = e.target.value; applyUI(); };
+$("#sizeSel").onchange = e => { ui.size = Number(e.target.value); applyUI(); };
+$("#setBtn").onclick = () => { const c = $("#setCard"); c.style.display = c.style.display === "none" ? "block" : "none"; };
+applyUI();
+
+renderPanel();
+loadNaver();
 </script>
 </body>
 </html>
