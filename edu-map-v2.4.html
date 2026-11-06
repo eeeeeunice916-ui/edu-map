@@ -106,6 +106,16 @@ td.l{text-align:left}
 td[contenteditable]{background:#fffdf3;outline:none}
 td[contenteditable]:focus{box-shadow:inset 0 0 0 2px var(--blue)}
 .sent{background:var(--soft);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.8;white-space:pre-wrap}
+.stg{display:grid;grid-template-columns:84px minmax(0,1fr);gap:6px 8px;align-items:center;font-size:12.5px}
+.stg input[type=color]{width:100%;height:30px;border:1px solid #d6dae0;border-radius:6px;padding:2px;background:#fff}
+.pal{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+.palb{display:flex;align-items:center;gap:6px;height:34px;padding:0 8px;border:1px solid #d6dae0;border-radius:8px;background:#fff;font-size:12.5px;cursor:pointer;text-align:left;color:var(--ink)}
+.palb span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.palb.on{border-color:var(--blue);background:var(--blueSoft)}
+.postBox{transform:translate(-50%,-50%);background:#fff;border:1.5px solid #495057;border-radius:6px;padding:3px 5px;display:inline-flex;flex-direction:column;align-items:center;gap:2px;box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:move}
+.postBox .pi{display:flex;gap:2px}
+.postBox .pn{font-size:var(--lblfs,12px);font-weight:700;color:#fff;background:#2f9e44;border-radius:3px;padding:0 5px;white-space:nowrap}
+.ovImg{position:absolute;transform-origin:50% 50%;max-width:none;pointer-events:none;user-select:none}
 .roadg{display:grid;grid-template-columns:34px minmax(0,1.3fr) repeat(3,minmax(0,1fr));gap:4px;align-items:center;font-size:12.5px}
 .roadg .h{color:var(--sub);text-align:center}
 /* 지도 위 */
@@ -132,7 +142,7 @@ td[contenteditable]:focus{box-shadow:inset 0 0 0 2px var(--blue)}
 #legend i,#pLegend i{display:inline-block;width:18px;height:11px;margin-right:6px;vertical-align:-1px;border-radius:2px}
 #pTitle{position:absolute;left:12px;top:12px;z-index:900;background:#fff;border:1px solid #c9ced6;padding:6px 12px;font-size:14px;font-weight:700;display:none}
 #pNorth{position:absolute;right:14px;top:12px;z-index:900;display:none}
-#layerPanel{position:absolute;right:12px;top:104px;z-index:1001;width:300px;max-width:calc(100% - 24px);max-height:calc(100% - 170px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none}
+#layerPanel{position:absolute;right:12px;top:104px;z-index:1001;width:320px;max-width:calc(100% - 24px);max-height:calc(100% - 170px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none}
 #layerPanel h4{margin:12px 0 4px;font-size:12px;color:var(--sub)}
 #layerPanel label{display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer}
 .lgsw{width:12px;height:12px;border-radius:2px;flex:none}
@@ -186,6 +196,7 @@ td[contenteditable]:focus{box-shadow:inset 0 0 0 2px var(--blue)}
         <div class="chips">
           <button class="chip" id="chipLayer">레이어</button>
           <button class="chip" id="chip300">300m 범위</button>
+          <button class="chip" id="chipDim">이격거리</button>
           <button class="chip" id="chipLeg">범례</button>
           <button class="chip" id="chipFit">전체 보기</button>
         </div>
@@ -200,11 +211,12 @@ td[contenteditable]:focus{box-shadow:inset 0 0 0 2px var(--blue)}
 </div>
 <div id="dlgBack"><div id="dlg" role="dialog" aria-modal="true" aria-label="사업 목록"></div></div>
 <input type="file" id="fileIn" accept=".json,application/json" style="display:none">
+<input type="file" id="ovIn" accept=".pdf,application/pdf,image/png,image/jpeg,image/webp" style="display:none">
 <div id="toast"></div>
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "3.0";
+const APP_VERSION = "3.4";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const KINDS = ["유치원","초등학교","중학교","고등학교","특수학교","기타"];
@@ -238,7 +250,7 @@ function uniq(a){ return [...new Set(a.filter(Boolean))]; }
 const PKEY = "eduMap.projects";
 function blankState(name){
   return { name: name || "새 사업", project:[], schools:[], facs:[], routes:[], walks:[],
-    manual:{ traffic:{}, roads:{}, link:{} }, after:{},
+    manual:{ traffic:{}, roads:{}, link:{} }, after:{}, safety:{ posts:[], pts:[], lines:[], areas:[], cranes:[] }, overlays:[],
     print:{ preset:"loc", paper:"land", title:"<사업지 및 대상학교 위치도>", disp:null } };
 }
 function normalize(s){
@@ -248,6 +260,8 @@ function normalize(s){
   s.manual = { ...b.manual, ...(s.manual || {}) };
   ["traffic","roads","link"].forEach(k => s.manual[k] = s.manual[k] || {});
   s.after = s.after || {};
+  s.safety = { posts:[], pts:[], lines:[], areas:[], cranes:[], ...(s.safety || {}) };
+  s.overlays = s.overlays || [];
   s.print = { ...b.print, ...(s.print || {}) };
   s.schools.forEach(sc => {
     if (sc.short === undefined) sc.short = "";
@@ -530,7 +544,7 @@ const zoneBadge = z => z === "절대보호구역" ? "abs" : z === "상대보호�
 /* ===== 지도 ===== */
 let map, baseLayer, labelLayer, drawLayer, nearLayer, vecLayer, popup;
 let nearFeats = [], nearOn = false, vecFeats = [], vecStat = "";
-let r300On = false, legOn = false, tileErrs = 0;
+let r300On = false, legOn = false, tileErrs = 0, tileOk = 0;
 let mode = null;     // {type:'project'|'school'|'gate'|'facP'|'facPt'|'route'|'walk', id}
 let step = Number(ls("eduMap.step")) || 1;
 const LAYERS = [
@@ -566,15 +580,17 @@ ly.on = ly.on.filter(id => LAYERS.some(d => d.id === id));
 const saveLy = () => ls("eduMap.layers", ly);
 const wms = {};
 
-function mapMsg(html){ const d = $("#mapMsg"); d.innerHTML = html; d.style.display = "block"; }
+function mapMsg(html){ const d = $("#mapMsg"); d.innerHTML = html + `<div style="margin-top:10px;text-align:right"><button class="btn sm" data-act="msgClose">닫기</button></div>`; d.style.display = "block"; }
 const WMTS = (type, ext) => `https://api.vworld.kr/req/wmts/1.0.0/${VW_KEY}/${type}/{z}/{y}/{x}.${ext}`;
 function vwWms(layers, styles, o){
   return L.tileLayer.wms("https://api.vworld.kr/req/wms", { layers, styles, format:"image/png", transparent:true, version:"1.3.0",
     key:VW_KEY, domain:DOMAIN, maxZoom:21, maxNativeZoom:19, ...o });
 }
+// 바탕지도 조각을 한 장도 못 불러올 때만 알림 (몇 장 빠지는 건 흔해서 무시)
+function onTileOk(){ tileOk++; if (tileOk === 1 && $("#mapMsg").dataset.kind === "tile") $("#mapMsg").style.display = "none"; }
 function onTileErr(){
   tileErrs++;
-  if (tileErrs === 6) mapMsg(`<b>브이월드 지도를 불러오지 못했어요</b><br>브이월드 인증키의 서비스URL이 <b>${esc(location.origin)}</b> 인지, 키가 승인됐는지 확인해 주세요.`);
+  if (tileErrs === 8 && tileOk === 0){ $("#mapMsg").dataset.kind = "tile"; mapMsg(`<b>브이월드 지도를 불러오지 못했어요</b><br>브이월드 인증키의 서비스URL이 <b>${esc(location.origin)}</b> 인지, 키가 승인됐는지 확인해 주세요.`); }
 }
 function setBase(){
   if (baseLayer){ map.removeLayer(baseLayer); baseLayer = null; }
@@ -583,7 +599,7 @@ function setBase(){
   $("#map").style.background = ly.base === "none" ? "#ffffff" : "#f2f3f5";
   if (ly.base === "none") return;
   baseLayer = ly.base === "sat" ? L.tileLayer(WMTS("Satellite","jpeg"), o) : ly.base === "gray" ? L.tileLayer(WMTS("gray","png"), o) : L.tileLayer(WMTS("Base","png"), o);
-  baseLayer.on("tileerror", onTileErr).addTo(map).bringToBack();
+  baseLayer.on("tileerror", onTileErr).on("tileload", onTileOk).addTo(map).bringToBack();
   if (ly.base === "sat") labelLayer = L.tileLayer(WMTS("Hybrid","png"), o).addTo(map);
 }
 function applyLayers(){
@@ -606,9 +622,13 @@ function initMap(){
   L.control.scale({ imperial:false, position:"bottomleft" }).addTo(map);
   map.createPane("zone"); map.getPane("zone").style.zIndex = 250;
   map.createPane("cad");  map.getPane("cad").style.zIndex = 260;
+  map.createPane("ovPane"); map.getPane("ovPane").style.zIndex = 240; map.getPane("ovPane").style.pointerEvents = "none";
   map.createPane("near"); map.getPane("near").style.zIndex = 380; map.getPane("near").style.pointerEvents = "none";
   setBase(); applyLayers();
+  rOver = L.svg({ pane:"overlayPane" }); map.addLayer(rOver);
+  rNear = L.svg({ pane:"near" }); map.addLayer(rNear);
   nearLayer = L.layerGroup().addTo(map);
+  safeLayer = L.layerGroup().addTo(map);
   vecLayer = L.layerGroup().addTo(map);
   drawLayer = L.layerGroup().addTo(map);
   popup = L.popup({ maxWidth:260 });
@@ -631,121 +651,481 @@ function fitAll(quiet){
   state.facs.forEach(f => f.point && pts.push(f.point));
   state.routes.forEach(r => pts.push(...r.pts));
   state.walks.forEach(r => pts.push(...r.pts));
+  const S = state.safety; S.pts.forEach(p => pts.push(p.pt)); S.posts.forEach(p => pts.push(p.pt)); [...S.lines, ...S.areas].forEach(l => pts.push(...l.pts));
   if (!pts.length){ if (!quiet) toast("아직 넣은 것이 없어요"); return; }
   const top = step === 4 ? 60 : 120;
   map.fitBounds(L.latLngBounds(pts.map(c => [c[1], c[0]])), { paddingTopLeft:[30,top], paddingBottomRight:[30,40] });
 }
 
+/* ===== 모양 (색·선·투명도·해치) ===== */
+const NS = "http://www.w3.org/2000/svg";
+const LINE_KEYS = ["dim","walk","route","bike","inRoute","outRoute","panel","roof"];
+const DEF_STYLE = {
+  proj: { stroke:"#e5484d", weight:3,   dash:"solid", lineOp:1,    fill:"#e5484d", fillOp:0.3,  hatch:"none", gap:8 },
+  site: { stroke:"#2f6fdf", weight:2,   dash:"solid", lineOp:1,    fill:"#2f6fdf", fillOp:0.3,  hatch:"none", gap:8 },
+  abs:  { stroke:"#f08c00", weight:2,   dash:"solid", lineOp:1,    fill:"#f08c00", fillOp:0.2,  hatch:"none", gap:8 },
+  rel:  { stroke:"#2f6fdf", weight:2,   dash:"dash",  lineOp:1,    fill:"#2f6fdf", fillOp:0.08, hatch:"none", gap:8 },
+  r300: { stroke:"#6b7280", weight:1.5, dash:"dot",   lineOp:1,    fill:"#6b7280", fillOp:0,    hatch:"none", gap:8 },
+  near: { stroke:"#3a3a3a", weight:1,   dash:"solid", lineOp:1,    fill:"#ffffff", fillOp:0,    hatch:"none", gap:8 },
+  dim:  { stroke:"#1f2328", weight:1.6, dash:"dash",  lineOp:1 },
+  walk: { stroke:"#868e96", weight:7,   dash:"solid", lineOp:0.75 },
+  route:{ stroke:"#d6336c", weight:4,   dash:"solid", lineOp:0.9 },
+  bike: { stroke:"#0ca678", weight:4,   dash:"solid", lineOp:0.9 },
+  inRoute: { stroke:"#e03131", weight:3, dash:"solid", lineOp:1 },
+  outRoute:{ stroke:"#1c7ed6", weight:3, dash:"solid", lineOp:1 },
+  panel:   { stroke:"#111111", weight:4, dash:"solid", lineOp:1 },
+  roof:    { stroke:"#40c057", weight:8, dash:"solid", lineOp:0.95 },
+  craneR:  { stroke:"#e8590c", weight:2, dash:"dash", lineOp:1, fill:"#ffa94d", fillOp:0.08, hatch:"none", gap:8 },
+  wait:    { stroke:"#2f9e44", weight:1.5, dash:"solid", lineOp:1, fill:"#b2f2bb", fillOp:0.8, hatch:"none", gap:8 },
+  stock:   { stroke:"#5c940d", weight:1.5, dash:"solid", lineOp:1, fill:"#d8f5a2", fillOp:0.8, hatch:"none", gap:8 }
+};
+Object.entries(FAC_TYPES).forEach(([k,t]) => DEF_STYLE["fac_"+k] = { stroke:t.color, weight:2, dash:"solid", lineOp:1, fill:t.color, fillOp:0.25, hatch:"none", gap:8 });
+const STYLE_NAMES = { proj:"사업지", site:"교지", abs:"절대보호구역", rel:"상대보호구역", r300:"교지경계 300m", near:"필지 경계", dim:"이격거리 치수선", walk:"보도", route:"통학로", bike:"자전거길", inRoute:"공사차량 진입경로", outRoute:"공사차량 진출경로", panel:"가설방음판넬", roof:"철제 지붕형 보행통로", wait:"공사차량 대기장소", stock:"자재 적치장소", craneR:"타워크레인 작업반경" };
+Object.entries(FAC_TYPES).forEach(([k,t]) => STYLE_NAMES["fac_"+k] = t.name);
+const DASHES = { solid:["실선", null], dash:["파선", "6 5"], dot:["점선", "1.5 4"], dashdot:["일점쇄선", "9 4 2 4"], long:["긴 파선", "12 6"] };
+const HATCHES = { none:"없음", diag:"사선 ／", diag2:"역사선 ＼", cross:"격자 사선 ×", horiz:"가로선", vert:"세로선", grid:"격자 +", dots:"점" };
+let styles = {};
+(() => { const s = ls("eduMap.styles") || {}; Object.keys(DEF_STYLE).forEach(k => styles[k] = { ...DEF_STYLE[k], ...(s[k] || {}) }); })();
+const saveStyles = () => ls("eduMap.styles", styles);
+const isLineKey = k => LINE_KEYS.includes(k);
+const hatchOn = s => s.hatch && s.hatch !== "none";
+function leafStyle(k){
+  const s = styles[k];
+  const o = { color:s.stroke, weight:s.weight, opacity:s.lineOp, dashArray: DASHES[s.dash] ? DASHES[s.dash][1] : null, lineCap: s.dash === "dot" ? "round" : "butt" };
+  if (isLineKey(k)) return { ...o, fill:false };
+  const filled = s.fillOp > 0 || hatchOn(s);
+  return { ...o, fill: filled, fillColor: hatchOn(s) ? `url(#hp-${k})` : s.fill, fillOpacity: hatchOn(s) ? 1 : s.fillOp };
+}
+// 해치 무늬 (지도·그림 저장·범례가 같이 씀)
+function patternSVG(k, idp){
+  const s = styles[k], g = Number(s.gap) || 8, c = s.stroke, sw = Math.max(0.8, Math.min(2, s.weight * 0.6));
+  const bg = `<rect width="${g}" height="${g}" fill="${s.fill}" fill-opacity="${s.fillOp}"/>`;
+  const ln = (x1,y1,x2,y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${sw}"/>`;
+  const rot = { diag:45, diag2:-45, cross:45 }[s.hatch] || 0;
+  const body = s.hatch === "horiz" ? ln(0, g/2, g, g/2)
+    : s.hatch === "dots" ? `<circle cx="${g/2}" cy="${g/2}" r="${sw}" fill="${c}"/>`
+    : s.hatch === "grid" || s.hatch === "cross" ? ln(g/2, 0, g/2, g) + ln(0, g/2, g, g/2)
+    : ln(g/2, 0, g/2, g);
+  return `<pattern id="${idp}${k}" patternUnits="userSpaceOnUse" width="${g}" height="${g}" ${rot ? `patternTransform="rotate(${rot})"` : ""}>${bg}${body}</pattern>`;
+}
+function allPatterns(idp){ return Object.keys(styles).filter(k => !isLineKey(k) && hatchOn(styles[k])).map(k => patternSVG(k, idp)).join(""); }
+function injectPatterns(){
+  [rOver, rNear].forEach(r => {
+    const svg = r && r._container; if (!svg) return;
+    let d = svg.querySelector("defs.hp");
+    if (!d){ d = document.createElementNS(NS, "defs"); d.setAttribute("class", "hp"); svg.insertBefore(d, svg.firstChild); }
+    d.innerHTML = allPatterns("hp-");
+  });
+}
+// 범례 칸 (작은 SVG)
+let swN = 0;
+function swatch(k, w = 22, h = 13){
+  if (k.startsWith("sp_")) return `<span style="display:inline-block;vertical-align:-4px;margin-right:6px">${iconSVG(k.slice(3), 17)}</span>`;
+  const s = styles[k], id = "sw" + (++swN) + "-";
+  const dash = DASHES[s.dash] && DASHES[s.dash][1];
+  if (isLineKey(k)) return `<svg width="${w}" height="${h}" style="vertical-align:-2px;margin-right:6px"><line x1="1" y1="${h/2}" x2="${w-1}" y2="${h/2}" stroke="${s.stroke}" stroke-width="${Math.min(s.weight, 6)}" stroke-opacity="${s.lineOp}" ${dash ? `stroke-dasharray="${dash}"` : ""}/></svg>`;
+  const fill = hatchOn(s) ? `url(#${id}${k})` : s.fill, fo = hatchOn(s) ? 1 : s.fillOp;
+  return `<svg width="${w}" height="${h}" style="vertical-align:-2px;margin-right:6px">${hatchOn(s) ? `<defs>${patternSVG(k, id)}</defs>` : ""}<rect x="1" y="1" width="${w-2}" height="${h-2}" fill="${fill}" fill-opacity="${fo}" stroke="${s.stroke}" stroke-width="${Math.min(s.weight, 2.5)}" stroke-opacity="${s.lineOp}" ${dash ? `stroke-dasharray="${dash}"` : ""}/></svg>`;
+}
+
+/* ===== 공사 중 안전대책 (기호 · 요원 박스 · 선 · 영역) ===== */
+const CHEV = (f, s) => `<path d="M3 17 L12 6.5 L21 17 L16.3 17 L12 12 L7.7 17 Z" fill="${f}" stroke="${s}" stroke-width="1.3" stroke-linejoin="round"/>`;
+const WORKER = bg => `<circle cx="12" cy="12" r="11" fill="${bg}" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="13.6" r="2.7" fill="#ffd8a8"/><path d="M7.2 11.2 a4.8 4 0 0 1 9.6 0z" fill="#ffd43b"/><rect x="6.2" y="10.6" width="11.6" height="1.6" rx=".8" fill="#fab005"/><path d="M6.8 20.6 q5.2-5.4 10.4 0z" fill="#ff922b"/>`;
+const SAFE_ICONS = {
+  staff:   { name:"안전요원(상시)",       svg: WORKER("#1c5fb8") },
+  staffS:  { name:"안전요원(통학시간대)", svg: WORKER("#2f9e44") },
+  sign:    { name:"안전표지판",           svg:`<path d="M12 2.2 L22.6 20.8 H1.4 Z" fill="#fff" stroke="#e03131" stroke-width="2.4" stroke-linejoin="round"/><rect x="10.9" y="8.2" width="2.2" height="7" rx="1" fill="#1f2328"/><circle cx="12" cy="17.7" r="1.3" fill="#1f2328"/>` },
+  cctv:    { name:"CCTV",                 svg:`<circle cx="12" cy="12" r="11" fill="#f08c00" stroke="#fff" stroke-width="1.5"/><rect x="4.8" y="8.6" width="10.2" height="6" rx="1.6" fill="#fff"/><path d="M15 10.4 l4.2-2.1 v7.4 l-4.2-2.1z" fill="#fff"/><circle cx="8.4" cy="11.6" r="1.5" fill="#f08c00"/>` },
+  mirror:  { name:"반사경",               svg:`<circle cx="12" cy="12" r="11" fill="#fcc419" stroke="#fff" stroke-width="1.5"/><rect x="11.2" y="13" width="1.6" height="7" fill="#495057"/><circle cx="12" cy="9.2" r="4.6" fill="#fff" stroke="#e8590c" stroke-width="1.6"/><path d="M10 8 q2-2 4 0" stroke="#74c0fc" stroke-width="1.2" fill="none"/>` },
+  light:   { name:"입출차 경고등",        svg:`<circle cx="12" cy="12" r="11" fill="#e8590c" stroke="#fff" stroke-width="1.5"/><rect x="8.4" y="7.4" width="7.2" height="9.4" rx="3.6" fill="#ffe066"/><rect x="7.2" y="16.2" width="9.6" height="2.6" rx="1" fill="#fff"/><path d="M5 9.4 l2 .9 M19 9.4 l-2 .9 M12 3.6 v2" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>` },
+  entMain: { name:"공사차량 진출입구(MAIN)", rot:true, svg: CHEV("#fcc419", "#d9480f") },
+  entSub:  { name:"공사차량 진출입구(SUB)",  rot:true, svg: CHEV("#b2f2bb", "#2b8a3e") },
+  gateArr: { name:"학교 출입구",          rot:true, svg: CHEV("#74c0fc", "#1864ab") },
+  zebra:   { name:"횡단보도",             rot:true, svg:`<rect x="1.5" y="6.5" width="21" height="11" fill="#fff" stroke="#495057"/><rect x="3.5" y="6.5" width="2.2" height="11" fill="#343a40"/><rect x="7.6" y="6.5" width="2.2" height="11" fill="#343a40"/><rect x="11.7" y="6.5" width="2.2" height="11" fill="#343a40"/><rect x="15.8" y="6.5" width="2.2" height="11" fill="#343a40"/><rect x="19.9" y="6.5" width="1.6" height="11" fill="#343a40"/>` }
+};
+const POST_ICONS = ["staff","staffS","sign","cctv","mirror","light"];
+const SAFE_LINES = { inRoute:"공사차량 진입경로", outRoute:"공사차량 진출경로", panel:"가설방음판넬", roof:"철제 지붕형 보행통로" };
+const SAFE_AREAS = { wait:"공사차량 대기장소", stock:"자재 적치장소" };
+const iconSVG = (t, size = 24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${SAFE_ICONS[t].svg}</svg>`;
+const findSP = id => state.safety.pts.find(x => x.id === id);
+const findPost = id => state.safety.posts.find(x => x.id === id);
+const findSL = id => state.safety.lines.find(x => x.id === id) || state.safety.areas.find(x => x.id === id);
+function safeCounts(){
+  const S = state.safety, c = {};
+  Object.keys(SAFE_ICONS).forEach(k => c[k] = S.pts.filter(p => p.type === k).length);
+  S.posts.forEach(p => POST_ICONS.forEach(k => { if (p.icons[k]) c[k]++; }));
+  const lineLen = t => S.lines.filter(l => l.type === t && l.pts.length > 1).reduce((a, l) => a + routeLen(l), 0);
+  c.roofLen = lineLen("roof"); c.panelLen = lineLen("panel");
+  c.ent = c.entMain + c.entSub;
+  c.crane = S.cranes.length; c.craneLuff = S.cranes.filter(x => x.kind === "luff").length; c.craneTee = c.crane - c.craneLuff;
+  c.staffNames = S.posts.filter(p => p.icons.staff).map(p => p.name);
+  c.staffSNames = S.posts.filter(p => p.icons.staffS).map(p => p.name);
+  return c;
+}
+function safeTable(){
+  const c = safeCounts(), where = k => uniq(state.safety.posts.filter(p => p.icons[k]).map(p => p.name)).join(", ");
+  return [
+    ["구분", "계획", "설치(배치) 위치"],
+    ["공사차량 진출입구", c.ent ? `${c.ent}개소${c.entMain && c.entSub ? ` (MAIN ${c.entMain}, SUB ${c.entSub})` : ""}` : "-", ""],
+    ["안전요원(상시)", c.staff ? `${c.staff}인` : "-", c.staffNames.join(", ")],
+    ["안전요원(통학시간대)", c.staffS ? `${c.staffS}인` : "-", c.staffSNames.join(", ")],
+    ["안전표지판", c.sign ? `${c.sign}개소` : "-", where("sign")],
+    ["CCTV", c.cctv ? `${c.cctv}대` : "-", where("cctv")],
+    ["입출차 경고등", c.light ? `${c.light}개` : "-", where("light")],
+    ["반사경", c.mirror ? `${c.mirror}개` : "-", where("mirror")],
+    ["가설방음판넬", c.panelLen ? `약 ${fmt(c.panelLen)}m` : "-", "공사장 경계"],
+    ["철제 지붕형 보행통로", c.roofLen ? `약 ${fmt(c.roofLen)}m` : "-", "사업구역과 면한 보도"],
+    ["타워크레인", c.crane ? `${c.crane}기 (${[c.craneLuff && `러핑형 ${c.craneLuff}`, c.craneTee && `T형 ${c.craneTee}`].filter(Boolean).join(", ")})` : "-", state.safety.cranes.map(x => `${x.name} R=${x.r}m`).join(", ")]
+  ];
+}
+function safeSentence(){
+  const c = safeCounts(), a = [];
+  if (c.ent) a.push(`공사차량 진출입구 ${c.ent}개소${c.entMain && c.entSub ? `(MAIN ${c.entMain}개소, SUB ${c.entSub}개소)` : ""}를 계획하고`);
+  if (c.staff || c.staffS) a.push(`안전요원${c.staff ? ` 상시 ${c.staff}인` : ""}${c.staff && c.staffS ? "," : ""}${c.staffS ? ` 통학시간대 ${c.staffS}인` : ""}을 배치하며`);
+  const eq = [c.sign && `안전표지판 ${c.sign}개소`, c.cctv && `CCTV ${c.cctv}대`, c.light && `입출차 경고등 ${c.light}개`, c.mirror && `반사경 ${c.mirror}개`].filter(Boolean);
+  if (eq.length) a.push(`${eq.join(", ")}를 설치하고`);
+  if (c.roofLen) a.push(`사업구역과 면한 보도에 철제 지붕형 보행통로(약 ${fmt(c.roofLen)}m)를 설치하여`);
+  let crane = "";
+  if (c.crane){
+    const hit = state.safety.cranes.some(x => craneCheck(x).some(y => y.hit));
+    crane = `\n· 타워크레인 ${c.crane}기(${[c.craneLuff && `러핑형 ${c.craneLuff}기`, c.craneTee && `T형 ${c.craneTee}기`].filter(Boolean).join(", ")})를 운영하며, ${hit ? "작업반경이 대상학교 교지에 일부 걸려 학교 상부로 회전하지 않도록 회전 제한 장치를 설치·운영하겠음" : "작업반경이 대상학교 교지를 침범하지 않는 것으로 검토됨"}`;
+  }
+  if (!a.length) return crane.trim();
+  return `· 공사 중 ${a.join(" ")} 학생 통학안전을 확보하겠음` + crane;
+}
+function boxDefault(pt){
+  if (!map) return [pt[0] + 0.0003, pt[1] + 0.0002];
+  const p = map.latLngToContainerPoint([pt[1], pt[0]]), q = map.containerPointToLatLng([p.x + 46, p.y - 46]);
+  return [q.lng, q.lat];
+}
+function postHTML(p){
+  const ics = POST_ICONS.filter(k => p.icons[k]);
+  return `<div class="postBox"><div class="pi">${ics.map(k => iconSVG(k, 18)).join("") || '<span style="font-size:11px;color:#868e96">아이콘 없음</span>'}</div><div class="pn">${esc(p.name)}</div></div>`;
+}
+function safetyPanel(){
+  const S = state.safety, c = safeCounts();
+  const pal = (types, attr) => `<div class="pal">${types.map(k => `<button class="palb ${mode && mode.type === attr && mode.sub === k ? "on" : ""}" data-${attr}="${k}">${iconSVG(k, 20)}<span>${SAFE_ICONS[k].name}</span></button>`).join("")}</div>`;
+  return `<div class="lab" style="margin:0">① 요원 박스 (평가서의 ‘요원1’ 박스처럼)</div>
+    ${S.posts.map(p => `<div class="card" style="padding:9px 11px">
+      <div class="row"><input class="inp sm" style="width:90px" data-postname="${p.id}" value="${esc(p.name)}" aria-label="박스 이름">
+        <div style="flex:1"></div><button class="x" data-delpost="${p.id}" aria-label="박스 지우기">✕</button></div>
+      <div class="row" style="margin-top:6px;gap:4px 10px">${POST_ICONS.map(k => `<label style="display:flex;align-items:center;gap:3px;font-size:12.5px;cursor:pointer"><input type="checkbox" data-posticon="${p.id}" data-k="${k}" ${p.icons[k]?"checked":""}>${iconSVG(k, 16)}${SAFE_ICONS[k].name.replace("안전요원","요원")}</label>`).join("")}</div>
+    </div>`).join("")}
+    <button class="btn sm ${on("safePost") ? "on" : "dashed"}" data-act="addPost">${on("safePost") ? "지도에서 위치를 누르세요…" : "+ 요원 박스 찍기"}</button>
+    <div class="muted">박스는 지도에서 끌어 옮길 수 있고, 지시선이 자동으로 따라가요.</div>
+    <div class="lab" style="margin:6px 0 0">② 기호 하나씩 찍기 <span class="muted">(누른 뒤 지도에 여러 번 찍고 완료)</span></div>
+    ${pal(Object.keys(SAFE_ICONS).filter(k => !k.startsWith("cr")), "safept")}
+    ${S.pts.length ? `<div class="card" style="padding:6px 10px">${S.pts.map(p => `<div class="parcel" style="align-items:center;padding:5px 0">${iconSVG(p.type, 18)}<span class="t" style="font-size:13px">${SAFE_ICONS[p.type].name}</span>
+      ${SAFE_ICONS[p.type].rot ? `<input type="range" min="0" max="355" step="5" value="${p.rot || 0}" data-sprot="${p.id}" style="width:90px" aria-label="방향">` : ""}<button class="x" data-delsp="${p.id}" aria-label="지우기">✕</button></div>`).join("")}</div>` : ""}
+    <div class="lab" style="margin:6px 0 0">③ 선 그리기</div>
+    <div class="pal">${Object.entries(SAFE_LINES).map(([k,n]) => `<button class="palb" data-safeline="${k}">${swatch(k, 22, 12)}<span>${n}</span></button>`).join("")}</div>
+    <div class="lab" style="margin:6px 0 0">④ 영역 그리기</div>
+    <div class="pal">${Object.entries(SAFE_AREAS).map(([k,n]) => `<button class="palb" data-safearea="${k}">${swatch(k, 22, 12)}<span>${n}</span></button>`).join("")}</div>
+    ${[...S.lines, ...S.areas].length ? `<div class="card" style="padding:6px 10px">${[...S.lines.map(l => [l, SAFE_LINES[l.type], "line"]), ...S.areas.map(a => [a, SAFE_AREAS[a.type], "area"])].map(([l, n, kind]) => `<div class="parcel" style="align-items:center;padding:5px 0">${swatch(l.type, 20, 11)}<span class="t" style="font-size:13px">${n}${kind === "line" && l.pts.length > 1 ? ` · 약 ${fmt(routeLen(l))}m` : ""}</span>
+      <button class="btn sm ${on("safeShape", l.id)}" style="height:28px" data-sledit="${l.id}">${l.pts.length ? "이어 그리기" : "그리기"}</button><button class="x" data-delsl="${l.id}" aria-label="지우기">✕</button></div>`).join("")}</div>` : ""}
+    ${cranePanel()}
+    <div class="lab" style="margin:6px 0 0">⑦ 안전시설 설치계획 (자동 집계)</div>
+    <div class="tblWrap"><table>${safeTable().map((r, i) => `<tr>${r.map(x => i ? `<td class="${x === r[0] ? "l" : ""}">${esc(x)}</td>` : `<th>${x}</th>`).join("")}</tr>`).join("")}</table></div>
+    <div class="grid2"><button class="btn sm" data-act="copySafe">표 복사</button><button class="btn sm" data-act="copySafeText">문장 복사</button></div>`;
+}
+
+/* ===== 타워크레인 ===== */
+const CRANES = { luff:"타워크레인(러핑형)", tee:"타워크레인(T형)" };
+SAFE_ICONS.crLuff = { name:CRANES.luff, svg:`<circle cx="12" cy="12" r="11" fill="#ffd43b" stroke="#fff" stroke-width="1.5"/><rect x="10.8" y="9" width="2.4" height="11" fill="#343a40"/><path d="M12 9.5 L20 3.5" stroke="#343a40" stroke-width="2.2" stroke-linecap="round"/><path d="M12 9.5 L7 11.5" stroke="#343a40" stroke-width="2" stroke-linecap="round"/><rect x="5" y="10.8" width="3.4" height="2.6" fill="#868e96"/><rect x="8" y="19.5" width="8" height="1.6" fill="#343a40"/>` };
+SAFE_ICONS.crTee  = { name:CRANES.tee,  svg:`<circle cx="12" cy="12" r="11" fill="#ffd43b" stroke="#fff" stroke-width="1.5"/><rect x="10.8" y="6.5" width="2.4" height="13.5" fill="#343a40"/><rect x="3" y="6" width="18" height="2.2" fill="#343a40"/><rect x="3.2" y="8.2" width="4" height="2.8" fill="#868e96"/><path d="M18.5 8.2 v4" stroke="#343a40" stroke-width="1"/><rect x="8" y="19.5" width="8" height="1.6" fill="#343a40"/>` };
+const crIcon = k => k === "tee" ? "crTee" : "crLuff";
+const findCr = id => state.safety.cranes.find(x => x.id === id);
+function craneCheck(c){
+  const circ = turf.circle(c.pt, c.r, { units:"meters", steps:96 }).geometry;
+  return state.schools.filter(s => s.parcels.length).map(s => {
+    const hit = s.parcels.some(p => intersects(p.geom, circ));
+    const d = pointDist(c.pt, s.parcels.map(p => p.geom));
+    return { s, hit, gap: d - c.r };
+  });
+}
+function cranePanel(){
+  const C = state.safety.cranes;
+  return `<div class="lab" style="margin:6px 0 0">⑥ 타워크레인</div>
+    <div class="pal">${Object.entries(CRANES).map(([k,n]) => `<button class="palb ${on("crane", k)}" data-crane="${k}">${iconSVG(crIcon(k), 20)}<span>${n.replace("타워크레인","")}</span></button>`).join("")}</div>
+    ${C.map(c => { const ck = craneCheck(c); return `<div class="card" style="padding:9px 11px">
+      <div class="row">${iconSVG(crIcon(c.kind), 20)}<input class="inp sm" style="width:80px" data-crname="${c.id}" value="${esc(c.name)}" aria-label="크레인 이름">
+        <select class="inp sm" style="width:auto" data-crkind="${c.id}" aria-label="종류">${Object.entries(CRANES).map(([k,n]) => `<option value="${k}" ${c.kind===k?"selected":""}>${n.replace("타워크레인","")}</option>`).join("")}</select>
+        <span class="muted">반경</span><input class="inp sm" style="width:64px" type="number" min="5" step="1" data-crr="${c.id}" value="${c.r}" aria-label="작업반경(m)"><span class="muted">m</span>
+        <button class="x" data-delcr="${c.id}" aria-label="지우기">✕</button></div>
+      ${ck.length ? `<div style="margin-top:6px;font-size:12.5px;line-height:1.6">${ck.map(x => x.hit ? `<span class="badge bad">${esc(sName(x.s))} 교지 침범</span>` : `<span class="badge out">${esc(sName(x.s))} 침범 없음</span> <span class="muted">(여유 약 ${fmt(x.gap)}m)</span>`).join("<br>")}</div>` : ""}
+    </div>`; }).join("")}
+    <div class="muted">크레인 기호는 지도에서 끌어 옮길 수 있어요. 작업반경(지브 길이)을 m로 넣으면 원이 그려져요.</div>`;
+}
+
+/* ===== 도면·배치도 붙이기 (PDF · 이미지) ===== */
+const idb = (() => {
+  let dbp = null;
+  const db = () => dbp || (dbp = new Promise((res, rej) => { const r = indexedDB.open("eduMap", 1); r.onupgradeneeded = () => r.result.createObjectStore("imgs"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }));
+  const tx = async (mode, fn) => { const d = await db(); return new Promise((res, rej) => { const t = d.transaction("imgs", mode), st = t.objectStore("imgs"), q = fn(st); t.oncomplete = () => res(q && q.result); t.onerror = () => rej(t.error); }); };
+  return { put:(k, v) => tx("readwrite", s => s.put(v, k)), get:k => tx("readonly", s => s.get(k)), del:k => tx("readwrite", s => s.delete(k)) };
+})();
+const ovUrl = {};          // id → blob URL
+const ovLayers = {};       // id → 지도 레이어
+let ovSel = null;
+const RotImage = L.Layer.extend({
+  initialize(ov){ this.ov = ov; },
+  onAdd(map){
+    this._img = L.DomUtil.create("img", "ovImg"); this._img.alt = ""; this._img.draggable = false;
+    this._img.src = ovUrl[this.ov.id] || "";
+    map.getPane("ovPane").appendChild(this._img);
+    map.on("zoomend viewreset moveend", this.update, this); this.update();
+  },
+  onRemove(map){ this._img.remove(); map.off("zoomend viewreset moveend", this.update, this); },
+  update(){
+    if (!this._map || !this._img) return;
+    const o = this.ov, m = this._map, c = m.latLngToLayerPoint([o.center[1], o.center[0]]);
+    const mpp = m.distance(m.layerPointToLatLng([c.x - 50, c.y]), m.layerPointToLatLng([c.x + 50, c.y])) / 100;
+    const w = o.widthM / mpp;
+    Object.assign(this._img.style, { left: c.x + "px", top: c.y + "px", width: w + "px", opacity: o.opacity, transform:`translate(-50%,-50%) rotate(${o.rot}deg)`, display: o.show ? "block" : "none" });
+    if (ovUrl[o.id] && this._img.src !== ovUrl[o.id]) this._img.src = ovUrl[o.id];
+  }
+});
+async function loadOverlayImages(){
+  for (const o of state.overlays){ if (!ovUrl[o.id]){ try { const b = await idb.get(o.id); if (b) ovUrl[o.id] = URL.createObjectURL(b); } catch(e){} } }
+  syncOverlays();
+}
+function syncOverlays(){
+  if (!map) return;
+  Object.keys(ovLayers).forEach(id => { if (!state.overlays.find(o => o.id === id)){ map.removeLayer(ovLayers[id]); delete ovLayers[id]; } });
+  const show = dispNow().overlay !== false;
+  state.overlays.forEach(o => {
+    if (!ovLayers[o.id]){ ovLayers[o.id] = new RotImage(o); map.addLayer(ovLayers[o.id]); }
+    ovLayers[o.id].ov = o;
+    const vis = o.show && show;
+    ovLayers[o.id]._img && (ovLayers[o.id]._img.style.display = vis ? "block" : "none");
+    if (vis) ovLayers[o.id].update();
+  });
+}
+let pdfLib = null;
+function loadPdfJs(){
+  if (pdfLib) return Promise.resolve(pdfLib);
+  return new Promise((res, rej) => {
+    const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+    sc.onload = () => { pdfLib = window.pdfjsLib; pdfLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; res(pdfLib); };
+    sc.onerror = () => rej(new Error("PDF 도구를 불러오지 못했어요")); document.head.appendChild(sc);
+  });
+}
+async function fileToImageBlob(file){
+  if (/pdf$/i.test(file.type) || /\.pdf$/i.test(file.name)){
+    const lib = await loadPdfJs();
+    const pdf = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
+    let pg = 1;
+    if (pdf.numPages > 1){ const a = prompt(`PDF가 ${pdf.numPages}쪽이에요. 몇 쪽을 붙일까요?`, "1"); if (a === null) return null; pg = Math.min(pdf.numPages, Math.max(1, parseInt(a) || 1)); }
+    const page = await pdf.getPage(pg), v0 = page.getViewport({ scale:1 }), scale = Math.min(4, 2600 / Math.max(v0.width, v0.height));
+    const vp = page.getViewport({ scale }), c = document.createElement("canvas"); c.width = vp.width; c.height = vp.height;
+    await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+    return { blob: await new Promise(r => c.toBlob(r, "image/png")), w: c.width, h: c.height, name: file.name + (pdf.numPages > 1 ? ` (${pg}쪽)` : "") };
+  }
+  if (!/^image\//.test(file.type)) throw new Error("PDF나 이미지(PNG·JPG) 파일만 붙일 수 있어요");
+  const url = URL.createObjectURL(file);
+  const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+  URL.revokeObjectURL(url);
+  return { blob: file, w: im.naturalWidth, h: im.naturalHeight, name: file.name };
+}
+function fitTarget(){
+  const gs = state.project.length ? state.project.map(p => p.geom) : focusGeoms();
+  if (gs.length){
+    const bb = turf.bbox(turf.featureCollection(gs.map(g => turf.feature(g))));
+    return { center:[(bb[0]+bb[2])/2, (bb[1]+bb[3])/2], widthM: Math.max(30, ptpt([bb[0], (bb[1]+bb[3])/2], [bb[2], (bb[1]+bb[3])/2]) * 1.6) };
+  }
+  const c = map.getCenter(), b = map.getBounds();
+  return { center:[c.lng, c.lat], widthM: map.distance([c.lat, b.getWest()], [c.lat, b.getEast()]) * 0.6 };
+}
+async function addOverlayFile(file){
+  toast("파일 읽는 중…", 20000);
+  let r;
+  try { r = await fileToImageBlob(file); } catch(e){ toast(e.message || "파일을 읽지 못했어요", 5000); return; }
+  if (!r) { $("#toast").style.display = "none"; return; }
+  const id = uid("ov");
+  try { await idb.put(id, r.blob); } catch(e){ toast("이 브라우저에 파일을 저장하지 못했어요 (용량 부족일 수 있어요)", 5000); }
+  ovUrl[id] = URL.createObjectURL(r.blob);
+  const t = fitTarget();
+  state.overlays.push({ id, name:r.name, center:t.center, widthM:Math.round(t.widthM), rot:0, opacity:0.6, show:true, aspect:r.w / r.h });
+  ovSel = id; changed(); syncOverlays();
+  toast("지도에 붙였어요. 패널에서 위치·크기·회전을 맞춰 주세요", 4000);
+}
+function overlayPanel(){
+  return `<div class="card">
+    <div class="row" style="justify-content:space-between"><b style="font-size:14px">도면·배치도 붙이기</b><button class="btn sm" data-act="addOverlay">PDF·이미지 올리기</button></div>
+    ${state.overlays.length ? state.overlays.map(o => { const sel = ovSel === o.id; return `<div style="border-top:1px dashed var(--line);margin-top:8px;padding-top:8px">
+      <div class="row"><label style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;font-size:13.5px"><input type="checkbox" data-ovshow="${o.id}" ${o.show?"checked":""}><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.name)}</span></label>
+        <button class="btn sm ${sel ? "on" : ""}" data-ovsel="${o.id}">${sel ? "맞추는 중" : "맞추기"}</button><button class="x" data-delov="${o.id}" aria-label="지우기">✕</button></div>
+      ${sel ? `<div class="stg" style="margin-top:8px">
+        <span>위치</span><div class="row"><button class="btn sm ${on("ovMove", o.id)}" data-ovmove="${o.id}">지도에서 가운데 찍기</button><button class="btn sm" data-ovfit="${o.id}">사업지에 맞추기</button></div>
+        <span>미세 이동</span><div class="row">${[["←",-1,0],["→",1,0],["↑",0,1],["↓",0,-1]].map(([a,x,y]) => `<button class="btn sm" style="width:34px;padding:0" data-ovnudge="${o.id}" data-x="${x}" data-y="${y}" aria-label="이동 ${a}">${a}</button>`).join("")}<select class="inp sm" style="width:auto" data-ovstep aria-label="이동 간격">${[0.5,1,5,20].map(v => `<option value="${v}" ${ovStep===v?"selected":""}>${v}m</option>`).join("")}</select></div>
+        <span>너비 (m)</span><input class="inp sm" type="number" min="5" step="1" data-ovw="${o.id}" value="${o.widthM}">
+        <span>크기 조절</span><input type="range" min="-50" max="50" step="1" value="0" data-ovscale="${o.id}" aria-label="크기 조절">
+        <span>회전 (°)</span><div class="row" style="flex-wrap:nowrap"><input type="range" min="-180" max="180" step="0.5" value="${o.rot}" data-ovrot="${o.id}" style="flex:1" aria-label="회전"><input class="inp sm" style="width:62px" type="number" step="0.5" data-ovrotn="${o.id}" value="${o.rot}" aria-label="회전 각도"></div>
+        <span>투명도</span><input type="range" min="0.1" max="1" step="0.05" value="${o.opacity}" data-ovop="${o.id}" aria-label="투명도">
+      </div><div class="muted" style="margin-top:6px">사업지 경계(빨간 선)나 필지 경계에 도면 선이 겹치도록 맞추세요. 위성지도로 바꾸면 건물 모서리로 맞추기 쉬워요.</div>` : ""}
+    </div>`; }).join("") : `<div class="muted" style="margin-top:6px">배치도·토지이용계획도 등 PDF(원하는 쪽)나 PNG·JPG를 올리면 지도 위에 겹쳐 보여 줘요. 파일은 이 컴퓨터 브라우저에만 저장돼요.</div>`}
+  </div>`;
+}
+let ovStep = 1;
+function nudgeOverlay(o, dx, dy){
+  const k = Math.cos(o.center[1]*Math.PI/180)*111320;
+  o.center = [o.center[0] + dx*ovStep/k, o.center[1] + dy*ovStep/110574];
+}
+
 /* ===== 그릴 내용 (지도와 그림 저장이 같이 씀) ===== */
-const DEFAULT_DISP = { near:true, project:true, site:true, zones:true, facs:true, routes:true, walks:true, dims:false };
+let dimOn = false;
+// 주변 시설 종류별 보이기 (평소 지도)
+let facVis = ls("eduMap.facVis") || {};
+const facFlags = () => Object.fromEntries(Object.keys(FAC_TYPES).map(k => ["f_" + k, facVis[k] !== false]));
+const DEFAULT_DISP = () => ({ near:true, project:true, site:true, zones:true, facs:true, routes:true, walks:true, safety:true, overlay:true, dims:dimOn, dimsFac:dimOn, dimsEnt:dimOn, ...facFlags() });
+const facShown = (disp, type) => disp.facs && disp["f_" + type] !== false;
 const PRESETS = {
-  loc:   { name:"위치도",     disp:{ near:true, project:true, site:true, zones:true, facs:false, routes:false, walks:false, dims:true } },
-  zone:  { name:"보호구역도", disp:{ near:true, project:true, site:true, zones:true, facs:false, routes:false, walks:false, dims:false } },
-  route: { name:"통학로도",   disp:{ near:true, project:true, site:true, zones:false, facs:false, routes:true, walks:true, dims:false } },
-  fac:   { name:"주변시설도", disp:{ near:true, project:true, site:true, zones:false, facs:true, routes:false, walks:false, dims:false } }
+  loc:   { name:"위치도",     disp:{ near:true, project:true, site:true, zones:true, facs:false, routes:false, walks:false, dims:true, dimsFac:false, dimsEnt:false } },
+  zone:  { name:"보호구역도", disp:{ near:true, project:true, site:true, zones:true, facs:false, routes:false, walks:false, dims:false, dimsFac:false, dimsEnt:false } },
+  route: { name:"통학로도",   disp:{ near:true, project:true, site:true, zones:false, facs:false, routes:true, walks:true, dims:false, dimsFac:false, dimsEnt:true } },
+  fac:   { name:"주변시설도", disp:{ near:true, project:true, site:true, zones:false, facs:true, routes:false, walks:false, dims:false, dimsFac:true, dimsEnt:false } },
+  safe:  { name:"공사 중 안전대책도", disp:{ near:true, project:true, site:true, zones:false, facs:false, routes:false, walks:true, safety:true, dims:false, dimsFac:false, dimsEnt:false } }
 };
-function dispNow(){ return step === 4 ? (state.print.disp || PRESETS[state.print.preset].disp) : DEFAULT_DISP; }
-const ST = {
-  rel:  { color:"#2f6fdf", weight:2, dashArray:"6 5", fillColor:"#2f6fdf", fillOpacity:0.08 },
-  abs:  { color:"#f08c00", weight:2, fillColor:"#f08c00", fillOpacity:0.2 },
-  site: { color:"#2f6fdf", weight:2, fillColor:"#2f6fdf", fillOpacity:0.3 },
-  proj: { color:"#e5484d", weight:3, fillColor:"#e5484d", fillOpacity:0.3 },
-  r300: { color:"#6b7280", weight:1.5, dashArray:"2 6", fill:false },
-  near: { color:"#3a3a3a", weight:1, fill:false }
-};
+function dispNow(){ return step === 4 ? { ...PRESETS[state.print.preset].disp, ...(state.print.disp || {}) } : DEFAULT_DISP(); }
+// 두 모양 사이 가장 가까운 두 점
+function nearestFromPoint(pt, g){
+  const xy = makeXY(pt), p = xy(pt); let best = { d:Infinity };
+  for (const r of ringsOf(g)) for (let i=0;i<r.length-1;i++){
+    const a = xy(r[i]), b = xy(r[i+1]), t = segT(p,a,b), d = Math.hypot(p[0]-a[0]-t*(b[0]-a[0]), p[1]-a[1]-t*(b[1]-a[1]));
+    if (d < best.d) best = { d, a:pt, b:[r[i][0] + t*(r[i+1][0]-r[i][0]), r[i][1] + t*(r[i+1][1]-r[i][1])] };
+  }
+  return best;
+}
+function pairShapes(A, B){
+  let best = { d:Infinity };
+  const take = r => { if (r.d < best.d) best = r; };
+  if (A.polys.length && B.polys.length) A.polys.forEach(a => B.polys.forEach(b => { if (intersects(a, b)) take({ d:0 }); else take(nearestPairG(a, b)); }));
+  else if (A.pt && B.polys.length) B.polys.forEach(b => { try { if (turf.booleanPointInPolygon(turf.point(A.pt), turf.feature(b))) return take({ d:0 }); } catch(e){} take(nearestFromPoint(A.pt, b)); });
+  else if (B.pt && A.polys.length) A.polys.forEach(a => { try { if (turf.booleanPointInPolygon(turf.point(B.pt), turf.feature(a))) return take({ d:0 }); } catch(e){} const r = nearestFromPoint(B.pt, a); take({ d:r.d, a:r.b, b:r.a }); });
+  else if (A.pt && B.pt) take({ d:ptpt(A.pt, B.pt), a:A.pt, b:B.pt });
+  return best;
+}
 function buildScene(disp){
   const items = [], labels = [], leg = new Set();
-  const poly = (geom, style, pane) => items.push({ k:"poly", geom, style, pane });
-  if (disp.near) nearFeats.forEach(f => { poly(f.geom, ST.near, "near"); if (f.label) labels.push({ k:"nlabel", pt:f.label, text:f.jibun }); });
+  const poly = (geom, sk, pane) => { items.push({ k:"poly", geom, sk, pane }); leg.add(sk); };
+  const dimLine = (r, text) => {
+    if (!r || !r.a || !(r.d > 0)) return;
+    items.push({ k:"line", coords:[r.a, r.b], sk:"dim" });
+    items.push({ k:"dot", pt:r.a, r:3, color:styles.dim.stroke }); items.push({ k:"dot", pt:r.b, r:3, color:styles.dim.stroke });
+    labels.push({ k:"dim", pt:[(r.a[0]+r.b[0])/2, (r.a[1]+r.b[1])/2], text }); leg.add("dim");
+  };
+  if (disp.near) nearFeats.forEach(f => { items.push({ k:"poly", geom:f.geom, sk:"near", pane:"near" }); if (f.label) labels.push({ k:"nlabel", pt:f.label, text:f.jibun }); });
   vecFeats.forEach(v => {
-    if (v.kind === "bike"){ if (disp.walks){ items.push({ k:"line", coords:v.coords, style:{ color:"#0ca678", weight:4, opacity:0.9 }, pane:"near" }); leg.add("bike"); } }
-    else if (disp.zones){ poly(v.geom, v.kind === "abs" ? ST.abs : ST.rel, "near"); leg.add(v.kind); }
+    if (v.kind === "bike"){ if (disp.walks){ items.push({ k:"line", coords:v.coords, sk:"bike", pane:"near" }); leg.add("bike"); } }
+    else if (disp.zones) poly(v.geom, v.kind === "abs" ? "abs" : "rel", "near");
   });
   state.schools.forEach(s => {
     const sh = showOf(s), gs = s.parcels.map(p => p.geom);
-    if (r300On && gs.length){ const b3 = bufferOf(gs, 300); if (b3){ poly(b3.geometry, ST.r300); leg.add("r300"); } }
+    if (r300On && gs.length){ const b3 = bufferOf(gs, 300); if (b3) poly(b3.geometry, "r300"); }
     if (disp.zones){
       if (useOfficial(s)){
-        if (sh.rel && s.official.rel.length){ s.official.rel.forEach(g => poly(g, ST.rel)); leg.add("rel"); }
-        if (sh.abs && s.official.abs.length){ s.official.abs.forEach(g => poly(g, ST.abs)); leg.add("abs"); }
+        if (sh.rel) s.official.rel.forEach(g => poly(g, "rel"));
+        if (sh.abs) s.official.abs.forEach(g => poly(g, "abs"));
       } else {
-        if (sh.rel){ const rel = relZone(s); if (rel){ poly(rel.geometry, ST.rel); leg.add("rel"); } }
-        if (sh.abs){ const abs = absZone(s); if (abs){ poly(abs.geometry, ST.abs); leg.add("abs"); } }
+        if (sh.rel){ const rel = relZone(s); if (rel) poly(rel.geometry, "rel"); }
+        if (sh.abs){ const abs = absZone(s); if (abs) poly(abs.geometry, "abs"); }
       }
     }
-    if (disp.site && sh.site && gs.length){ gs.forEach(g => poly(g, ST.site)); leg.add("site"); }
-    if (disp.site && s.gate && s.zsrc !== "planned") items.push({ k:"dot", pt:s.gate, r:6, color:"#f08c00" });
-    if ((disp.site || disp.zones) && gs.length) labels.push({ k:"label", pt:centroidOf(gs), text:sName(s), color:"#2f6fdf" });
+    if (disp.site && sh.site && gs.length) gs.forEach(g => poly(g, "site"));
+    if (disp.site && s.gate && s.zsrc !== "planned") items.push({ k:"dot", pt:s.gate, r:6, color:styles.abs.stroke });
+    if ((disp.site || disp.zones) && gs.length) labels.push({ k:"label", pt:centroidOf(gs), text:sName(s), color:styles.site.stroke });
   });
-  if (disp.facs) state.facs.forEach(f => {
-    const c = FAC_TYPES[f.type].color;
-    if (f.parcels.length){ f.parcels.forEach(p => poly(p.geom, { color:c, weight:2, fillColor:c, fillOpacity:0.25 })); labels.push({ k:"label", pt:centroidOf(f.parcels.map(p=>p.geom)), text:f.name, color:c }); leg.add("fac_"+f.type); }
-    else if (f.point){ items.push({ k:"dot", pt:f.point, r:7, color:c }); labels.push({ k:"label", pt:f.point, text:f.name, color:c, dy:-22 }); leg.add("fac_"+f.type); }
+  state.facs.forEach(f => {
+    if (!facShown(disp, f.type)) return;
+    const sk = "fac_" + f.type, c = styles[sk].stroke;
+    if (f.parcels.length){ f.parcels.forEach(p => poly(p.geom, sk)); labels.push({ k:"label", pt:centroidOf(f.parcels.map(p=>p.geom)), text:f.name, color:c }); }
+    else if (f.point){ items.push({ k:"dot", pt:f.point, r:7, color:c }); labels.push({ k:"label", pt:f.point, text:f.name, color:c, dy:-22 }); leg.add(sk); }
   });
-  if (disp.project && state.project.length){ state.project.forEach(p => poly(p.geom, ST.proj)); leg.add("proj"); labels.push({ k:"label", pt:centroidOf(state.project.map(p=>p.geom)), text:"사업지", color:"#e5484d" }); }
+  if (disp.project && state.project.length){ state.project.forEach(p => poly(p.geom, "proj")); labels.push({ k:"label", pt:centroidOf(state.project.map(p=>p.geom)), text:"사업지", color:styles.proj.stroke }); }
   if (disp.walks) state.walks.forEach(r => {
     if (!r.pts.length) return;
-    items.push({ k:"line", coords:r.pts, style:{ color:"#868e96", weight:7, opacity:0.75 } }); leg.add("walk");
+    items.push({ k:"line", coords:r.pts, sk:"walk" }); leg.add("walk");
     if (r.pts.length > 1){ const i = Math.floor((r.pts.length-1)/2), a = r.pts[i], b = r.pts[i+1];
       labels.push({ k:"label", pt:[(a[0]+b[0])/2, (a[1]+b[1])/2], text:`${r.name}${r.width ? " " + r.width + "m" : ""}`, color: r.width && r.width < 2 ? "#c42b2b" : "#5c636a" }); }
   });
   if (disp.routes) state.routes.forEach(r => {
     if (!r.pts.length) return;
-    items.push({ k:"line", coords:r.pts, style:{ color:"#d6336c", weight:4, opacity:0.9 } }); leg.add("route");
-    r.pts.forEach((p,i) => items.push({ k:"dot", pt:p, r: i===0||i===r.pts.length-1 ? 6 : 3.5, color:"#d6336c" }));
+    items.push({ k:"line", coords:r.pts, sk:"route" }); leg.add("route");
+    r.pts.forEach((p,i) => items.push({ k:"dot", pt:p, r: i===0||i===r.pts.length-1 ? 6 : 3.5, color:styles.route.stroke }));
     if (r.pts.length > 1){ const i = Math.floor((r.pts.length-1)/2), a = r.pts[i], b = r.pts[i+1];
-      labels.push({ k:"label", pt:[(a[0]+b[0])/2, (a[1]+b[1])/2], text:`약 ${fmt(routeLen(r))}m`, color:"#d6336c" }); }
+      labels.push({ k:"label", pt:[(a[0]+b[0])/2, (a[1]+b[1])/2], text:`약 ${fmt(routeLen(r))}m`, color:styles.route.stroke }); }
   });
+  // 이격거리 치수선
   if (disp.dims && state.project.length) state.schools.forEach(s => {
-    if (!s.parcels.length) return;
-    let best = { d:Infinity };
-    state.project.forEach(pp => s.parcels.forEach(sp => { if (intersects(pp.geom, sp.geom)) return; const r = nearestPairG(pp.geom, sp.geom); if (r.d < best.d) best = r; }));
-    if (best.d < Infinity){
-      items.push({ k:"line", coords:[best.a, best.b], style:{ color:"#1f2328", weight:1.6, dashArray:"5 4", opacity:1 } });
-      items.push({ k:"dot", pt:best.a, r:3, color:"#1f2328" }); items.push({ k:"dot", pt:best.b, r:3, color:"#1f2328" });
-      labels.push({ k:"dim", pt:[(best.a[0]+best.b[0])/2, (best.a[1]+best.b[1])/2], text:`약 ${fmt(best.d)}m` });
-    }
+    const sh = schoolShape(s); if (!hasShape(sh)) return;
+    const r = pairShapes(projShape(), sh); dimLine(r, `약 ${fmt(r.d)}m`);
   });
-  return { items, labels, leg };
+  if (disp.dimsFac) state.schools.forEach(s => ["park","cult"].filter(t => facShown(disp, t)).forEach(t => {
+    const nf = nearestFac(s, t); if (!nf) return;
+    const r = pairShapes(schoolShape(s), facShape(nf.f)); dimLine(r, `약 ${m1(r.d)}m`);
+  }));
+  if (disp.dimsEnt && facShown(disp, "gateA")) state.schools.forEach(s => {
+    const e = entranceDist(s); if (!e) return;
+    const r = pairShapes(s.gate ? { polys:[], pt:s.gate } : schoolShape(s), facShape(e.f)); dimLine(r, `약 ${fmt(r.d)}m`);
+  });
+  const icons = [], posts = [];
+  if (disp.safety){
+    const S = state.safety;
+    S.areas.forEach(a => { if (a.pts.length >= 3) poly({ type:"Polygon", coordinates:[[...a.pts, a.pts[0]]] }, a.type); else if (a.pts.length) items.push({ k:"line", coords:a.pts, sk:a.type }); });
+    S.lines.forEach(l => { if (l.pts.length){ items.push({ k:"line", coords:l.pts, sk:l.type }); leg.add(l.type); } });
+    S.pts.forEach(p => { icons.push(p); leg.add("sp_" + p.type); });
+    S.posts.forEach(p => { posts.push(p); POST_ICONS.forEach(k => p.icons[k] && leg.add("sp_" + k)); });
+    S.cranes.forEach(c => {
+      poly(turf.circle(c.pt, c.r, { units:"meters", steps:96 }).geometry, "craneR");
+      icons.push({ id:c.id, type:crIcon(c.kind), pt:c.pt, rot:0, crane:true }); leg.add("sp_" + crIcon(c.kind));
+      labels.push({ k:"label", pt:c.pt, text:`${c.name} (R=${c.r}m)`, color:"#e8590c", dy:24 });
+    });
+  }
+  return { items, labels, leg, icons, posts };
 }
-const LEG = {
-  proj:["사업지","background:rgba(229,72,77,.35);border:2px solid #e5484d"],
-  site:["교지","background:rgba(47,111,223,.35);border:2px solid #2f6fdf"],
-  abs:["절대보호구역","background:rgba(240,140,0,.25);border:2px solid #f08c00"],
-  rel:["상대보호구역","background:rgba(47,111,223,.08);border:2px dashed #2f6fdf"],
-  r300:["교지경계 300m","border:2px dotted #6b7280"],
-  walk:["보도","background:#868e96;height:6px;vertical-align:2px"],
-  bike:["자전거길","background:#0ca678;height:4px;vertical-align:3px"],
-  route:["통학로","background:#d6336c;height:4px;vertical-align:3px"]
-};
-function legendItems(leg){
-  const out = [];
-  ["proj","site","abs","rel","r300"].forEach(k => leg.has(k) && out.push(LEG[k]));
-  Object.entries(FAC_TYPES).forEach(([k,t]) => leg.has("fac_"+k) && out.push([t.name, `background:${t.color}`]));
-  ["walk","bike","route"].forEach(k => leg.has(k) && out.push(LEG[k]));
-  return out;
-}
-let lastScene = null;
+const LEG_ORDER = () => ["proj","site","abs","rel","r300", ...Object.keys(FAC_TYPES).map(k => "fac_"+k), "walk","bike","route","dim",
+  "sp_crLuff","sp_crTee","craneR","sp_entMain","sp_entSub","sp_gateArr","sp_zebra","inRoute","outRoute","panel","roof","wait","stock","sp_staff","sp_staffS","sp_sign","sp_cctv","sp_mirror","sp_light"];
+function legendItems(leg){ return LEG_ORDER().filter(k => leg.has(k)).map(k => [k.startsWith("sp_") ? SAFE_ICONS[k.slice(3)].name : STYLE_NAMES[k], k]); }
+let lastScene = null, rOver = null, rNear = null, safeLayer = null;
 function redraw(){
   if (!map) return;
   drawLayer.clearLayers(); nearLayer.clearLayers(); vecLayer.clearLayers();
   const sc = lastScene = buildScene(dispNow());
   const ll = c => [c[1], c[0]];
   sc.items.forEach(it => {
-    const grp = it.pane === "near" ? (it.k === "poly" && it.style === ST.near ? nearLayer : vecLayer) : drawLayer;
-    if (it.k === "poly") L.geoJSON(it.geom, { style:() => it.style, interactive:false, pane: it.pane || "overlayPane" }).addTo(grp);
-    else if (it.k === "line") L.polyline(it.coords.map(ll), { ...it.style, interactive:false, lineCap:"butt", pane: it.pane || "overlayPane" }).addTo(grp);
-    else if (it.k === "dot") L.circleMarker(ll(it.pt), { radius:it.r, interactive:false, color:"#fff", weight:2, fillColor:it.color, fillOpacity:1 }).addTo(drawLayer);
+    const nearP = it.pane === "near";
+    const grp = nearP ? (it.sk === "near" ? nearLayer : vecLayer) : drawLayer;
+    const opt = { interactive:false, pane: nearP ? "near" : "overlayPane", renderer: nearP ? rNear : rOver };
+    if (it.k === "poly") L.geoJSON(it.geom, { ...opt, style:() => leafStyle(it.sk) }).addTo(grp);
+    else if (it.k === "line") L.polyline(it.coords.map(ll), { ...opt, ...leafStyle(it.sk) }).addTo(grp);
+    else if (it.k === "dot") L.circleMarker(ll(it.pt), { radius:it.r, interactive:false, renderer:rOver, color:"#fff", weight:2, fillColor:it.color, fillOpacity:1 }).addTo(drawLayer);
   });
   sc.labels.forEach(lb => {
     const html = lb.k === "nlabel" ? `<div class="nearLbl">${esc(lb.text)}</div>`
-      : lb.k === "dim" ? `<div class="lbl" style="background:#fff;color:#1f2328;border:1px solid #1f2328">${esc(lb.text)}</div>`
+      : lb.k === "dim" ? `<div class="lbl" style="background:#fff;color:${styles.dim.stroke};border:1px solid ${styles.dim.stroke}">${esc(lb.text)}</div>`
       : `<div class="lbl" style="background:${lb.color}${lb.dy ? `;transform:translate(-50%,calc(-50% + ${lb.dy}px))` : ""}">${esc(lb.text)}</div>`;
     L.marker(ll(lb.pt), { interactive:false, pane: lb.k === "nlabel" ? "near" : "markerPane", icon:L.divIcon({ className:"", iconSize:null, html }) }).addTo(lb.k === "nlabel" ? nearLayer : drawLayer);
   });
+  // 안전대책 기호 · 요원 박스 (끌어서 옮기기)
+  safeLayer.clearLayers();
+  sc.icons.forEach(p => {
+    const m = L.marker(ll(p.pt), { draggable:true, keyboard:false, icon:L.divIcon({ className:"", iconSize:[26,26], iconAnchor:[13,13],
+      html:`<div style="width:26px;height:26px;transform:rotate(${p.rot || 0}deg)">${iconSVG(p.type, 26)}</div>` }) }).addTo(safeLayer);
+    m.on("dragend", () => { const q = m.getLatLng(); const tgt = p.crane ? findCr(p.id) : p; tgt.pt = [q.lng, q.lat]; save(); redraw(); if (p.crane && step === 3) renderPanel(); });
+  });
+  sc.posts.forEach(p => {
+    if (!p.box) p.box = boxDefault(p.pt);
+    const line = L.polyline([ll(p.pt), ll(p.box)], { color:"#868e96", weight:1.2, interactive:false, renderer:rOver }).addTo(safeLayer);
+    L.circleMarker(ll(p.pt), { radius:4, color:"#fff", weight:1.5, fillColor:"#15aabf", fillOpacity:1, interactive:false, renderer:rOver }).addTo(safeLayer);
+    const m = L.marker(ll(p.box), { draggable:true, keyboard:false, icon:L.divIcon({ className:"", iconSize:null, html:postHTML(p) }) }).addTo(safeLayer);
+    m.on("drag", () => line.setLatLngs([ll(p.pt), m.getLatLng()]));
+    m.on("dragend", () => { const q = m.getLatLng(); p.box = [q.lng, q.lat]; save(); });
+  });
+  injectPatterns();
+  syncOverlays();
   renderLegends();
 }
-function legendHtml(){ const it = lastScene ? legendItems(lastScene.leg) : []; return it.length ? `<b>범 례</b>${it.map(([n,s]) => `<div><i style="${s}"></i>${esc(n)}</div>`).join("")}` : ""; }
+function legendHtml(){ const it = lastScene ? legendItems(lastScene.leg) : []; return it.length ? `<b>범 례</b>${it.map(([n,k]) => `<div>${swatch(k)}${esc(n)}</div>`).join("")}` : ""; }
 function renderLegends(){
   const h = legendHtml();
   const lg = $("#legend");
@@ -753,6 +1133,27 @@ function renderLegends(){
   lg.style.display = legOn && step !== 4 ? "block" : "none";
   const pl = $("#pLegend");
   pl.innerHTML = h; pl.style.display = step === 4 && h ? "block" : "none";
+}
+/* 모양 편집 */
+let styleKey = "proj";
+function styleEditor(){
+  const k = styleKey, s = styles[k], line = isLineKey(k);
+  const keys = Object.keys(STYLE_NAMES);
+  return `<div style="display:flex;flex-direction:column;gap:8px">
+    <select class="inp sm" data-stylekey aria-label="바꿀 항목">${keys.map(x => `<option value="${x}" ${x===k?"selected":""}>${STYLE_NAMES[x]}</option>`).join("")}</select>
+    <div class="row" style="gap:10px"><span style="font-size:12px;color:var(--sub)">미리보기</span>${swatch(k, 60, 26)}</div>
+    <div class="stg"><span>선 색</span><input type="color" data-st="stroke" value="${s.stroke}" aria-label="선 색">
+      <span>선 굵기</span><input type="range" min="0.5" max="10" step="0.5" data-st="weight" value="${s.weight}" aria-label="선 굵기">
+      <span>선 종류</span><select class="inp sm" data-st="dash" aria-label="선 종류">${Object.entries(DASHES).map(([v,[n]]) => `<option value="${v}" ${s.dash===v?"selected":""}>${n}</option>`).join("")}</select>
+      <span>선 투명도</span><input type="range" min="0" max="1" step="0.05" data-st="lineOp" value="${s.lineOp}" aria-label="선 투명도">
+      ${line ? "" : `<span>채우기 색</span><input type="color" data-st="fill" value="${s.fill}" aria-label="채우기 색">
+      <span>채우기 투명도</span><input type="range" min="0" max="1" step="0.05" data-st="fillOp" value="${s.fillOp}" aria-label="채우기 투명도">
+      <span>해치</span><select class="inp sm" data-st="hatch" aria-label="해치 종류">${Object.entries(HATCHES).map(([v,n]) => `<option value="${v}" ${s.hatch===v?"selected":""}>${n}</option>`).join("")}</select>
+      <span>해치 간격</span><select class="inp sm" data-st="gap" aria-label="해치 간격">${[5,8,12,16].map(v => `<option value="${v}" ${Number(s.gap)===v?"selected":""}>${v}px</option>`).join("")}</select>`}
+    </div>
+    <div class="row"><button class="btn sm" data-act="styleReset">이 항목 기본값</button><button class="btn sm" data-act="styleResetAll">전부 기본값</button></div>
+    <div class="muted">해치 선 색은 선 색을 따라가요. 바꾼 모양은 모든 사업에 같이 적용되고 그림 저장에도 들어가요.</div>
+  </div>`;
 }
 
 /* ===== 레이어 패널 ===== */
@@ -775,11 +1176,16 @@ function renderLayerPanel(){
     <div class="row"><select class="inp sm" style="width:auto" data-near-r>${[100,200,300,500].map(r => `<option value="${r}" ${ly.nearR===r?"selected":""}>반경 ${r}m</option>`).join("")}</select>
       <button class="btn sm ${nearOn?"on":""}" data-act="near">${nearOn ? "지우기" : "그리기"}</button></div>
     ${state.schools.length ? `<h4>학교별 레이어</h4>` + state.schools.map(s => `<div style="margin:2px 0 6px"><b style="font-size:13px">${esc(sName(s))}</b>${showRow(s)}</div>`).join("") : ""}
+    <h4>주변 시설 보이기 (종류별)</h4>
+    ${Object.entries(FAC_TYPES).map(([k,t]) => { const n = state.facs.filter(f => f.type === k).length;
+      return `<label><input type="checkbox" data-facvis="${k}" ${facVis[k] !== false ? "checked" : ""}>${swatch("fac_"+k, 18, 11)}${t.name}<span class="muted" style="margin-left:auto">${n ? n + "개" : ""}</span></label>`; }).join("")}
     ${groups.map(g => `<h4>${g}</h4>` + LAYERS.filter(d => d.g === g).map(d =>
       `<label><input type="checkbox" data-ly="${d.id}" ${ly.on.includes(d.id)?"checked":""}><span class="lgsw" style="background:${d.color}"></span>${d.name}</label>`).join("")).join("")}
-    <h4>주제도 투명도</h4>
+    <h4>모양 바꾸기 (색 · 선 · 투명도 · 해치)</h4>
+    ${styleEditor()}
+    <h4>브이월드 주제도 투명도</h4>
     <input type="range" id="lyOp" min="0.15" max="1" step="0.05" value="${ly.op}" style="width:100%" aria-label="주제도 투명도">
-    <div class="muted" style="margin-top:6px">일부 레이어는 지역에 따라 자료가 없을 수 있어요.</div>`;
+    <div class="muted" style="margin-top:6px">브이월드 주제도(용도지역·지적도 등)는 색이 그림에 박혀 와서 투명도만 바꿀 수 있어요. 일부 레이어는 지역에 따라 자료가 없을 수 있어요.</div>`;
 }
 function toggleLayerPanel(force){
   const p = $("#layerPanel"), show = force !== undefined ? force : p.style.display !== "block";
@@ -889,6 +1295,25 @@ async function onMapClick(lng, lat){
     if (f){ f.point = [lng, lat]; f.parcels = []; changed(); toast(`${f.name} 위치를 찍었어요`); }
     setMode(null); return;
   }
+  if (mode && mode.type === "safePost"){
+    const n = state.safety.posts.length + 1;
+    const p = { id:uid("po"), name:`요원${n}`, pt:[lng, lat], box:null, icons:{ staff:true, staffS:false, sign:true, cctv:false, mirror:false, light:false } };
+    p.box = boxDefault(p.pt); state.safety.posts.push(p); changed(); toast(`${p.name} 박스를 넣었어요. 아이콘은 패널에서 고르세요`); setMode(null); return;
+  }
+  if (mode && mode.type === "safept"){
+    state.safety.pts.push({ id:uid("sp"), type:mode.sub, pt:[lng, lat], rot:0 }); changed(); updateModeText(); return;
+  }
+  if (mode && mode.type === "crane"){
+    const n = state.safety.cranes.length + 1;
+    state.safety.cranes.push({ id:uid("cr"), kind:mode.sub, pt:[lng, lat], r: mode.sub === "luff" ? 40 : 55, name:`T/C-${n}` });
+    changed(); toast("크레인을 넣었어요. 작업반경(m)을 패널에서 고치세요"); setMode(null); return;
+  }
+  if (mode && mode.type === "ovMove"){
+    const o = state.overlays.find(x => x.id === mode.id); if (o){ o.center = [lng, lat]; save(); syncOverlays(); } setMode(null); return;
+  }
+  if (mode && mode.type === "safeShape"){
+    const l = findSL(mode.id); if (l){ l.pts.push([lng, lat]); changed(); updateModeText(); } return;
+  }
   if (mode && (mode.type === "route" || mode.type === "walk")){
     const r = findL(mode.id);
     if (r){ r.pts.push([lng, lat]); changed(); updateModeText(); }
@@ -926,15 +1351,20 @@ function updateModeText(){
     m.type === "facP" ? `${f.name} 필지를 눌러 넣고 빼세요` :
     m.type === "facPt" ? `${f.name} 위치를 한 번 누르세요` :
     m.type === "walk" ? `보도를 따라 점을 찍으세요 · 지금 약 ${fmt(routeLen(r))}m` :
+    m.type === "safePost" ? "요원 박스를 둘 위치(지점)를 누르세요" :
+    m.type === "crane" ? `${CRANES[m.sub]} 위치(중심)를 누르세요` :
+    m.type === "ovMove" ? "도면 가운데가 올 위치를 누르세요" :
+    m.type === "safept" ? `‘${SAFE_ICONS[m.sub].name}’ 위치를 누르세요 (여러 번 가능)` :
+    m.type === "safeShape" ? (() => { const l = findSL(m.id); return SAFE_AREAS[l.type] ? `‘${SAFE_AREAS[l.type]}’ 모서리를 차례로 누르세요` : `‘${SAFE_LINES[l.type]}’ 을(를) 따라 점을 찍으세요 · 약 ${fmt(routeLen(l))}m`; })() :
     `출발점부터 교문까지 길을 따라 점을 찍으세요 · 지금 약 ${fmt(routeLen(r))}m`;
-  $("#modeUndo").style.display = m.type === "route" || m.type === "walk" ? "inline-block" : "none";
+  $("#modeUndo").style.display = ["route","walk","safeShape","safept"].includes(m.type) ? "inline-block" : "none";
 }
 function setMode(m){
   mode = m;
   if (!m){ $("#modeBar").style.display = "none"; renderPanel(); return; }
   updateModeText(); $("#modeBar").style.display = "flex"; renderPanel();
 }
-const on = (t, id) => mode && mode.type === t && (!id || mode.id === id) ? "on" : "";
+const on = (t, id) => mode && mode.type === t && (!id || mode.id === id || mode.sub === id) ? "on" : "";
 
 /* ===== 단계 레일 ===== */
 function stepDone(n){
@@ -1014,6 +1444,7 @@ function panel1(){
     <div class="k">지목</div><div>${esc(o.jimok)}</div>
     <div class="k">용도지역</div><div>${esc(o.zone)}</div></div>
   <button class="btn" data-act="copyOverview">사업 개요 표 복사</button>` : ""}
+  ${overlayPanel()}
   ${nextBtn(2, "다음: 대상학교")}`;
 }
 
@@ -1124,8 +1555,9 @@ function checkItems(){
         + state.walks.map(walkCard).join("") + `<div class="row"><button class="btn sm dashed" data-act="addWalk">+ 보도 그리기</button><button class="btn sm" data-vec="bike">자전거길 자동 그리기</button></div>` },
     { id:"ent", sec:"4.1.3.5", name:"교문과 단지출입구 거리", how:"단지 출입구 점 찍기", ok: all(r => r.ent), val: v2(r => r.ent ? `${fmt(r.ent.d)}m` : "-"),
       body: () => perSchool(S, r => r.ent ? `${r.ent.toGate ? "교문" : "교지경계"} ~ ‘${esc(r.ent.f.name)}’<br>약 <b>${fmt(r.ent.d)}m</b>` : `<span class="muted">${r.s.gate ? "단지 출입구를 찍어 주세요" : "2단계에서 교문을 찍으면 더 정확해요"}</span>`) + facBlock("gateA", "단지 출입구 찍기") },
-    { id:"cons", sec:"4.1.4", name:"공사차량 출입구", how:"출입구 점 찍기", ok: state.facs.some(f => f.type === "cons"), val: `${state.facs.filter(f => f.type === "cons").length}개`,
-      body: () => facBlock("cons", "공사차량 출입구 찍기") },
+    { id:"safe", sec:"4.1.4", name:"공사 중 통학안전 (요원·CCTV·지붕형 보행통로 등)", how:"기호 찍기 · 요원 박스 · 선 그리기", ok: state.safety.posts.length + state.safety.pts.length > 0,
+      val: (() => { const c = safeCounts(); return state.safety.posts.length + state.safety.pts.length ? `요원 ${c.staff + c.staffS}인\nCCTV ${c.cctv}대` : "-"; })(),
+      body: () => safetyPanel() },
     { id:"haz", sec:"4.5", name:"보호구역 내 위험시설 (300m)", how:"300m 범위 · 시설 등록", ok: S.length > 0, val: v2(r => r.haz && r.haz.length ? "미부합" : "부합"),
       body: () => perSchool(S, r => r.haz && r.haz.length ? `<span class="badge bad">미부합</span><br>${esc(r.haz.map(h => h.f.name).join(", "))}` : `<span class="badge out">부합</span>`)
         + `<div class="row"><button class="btn sm ${r300On ? "on" : ""}" data-act="r300">교지경계 300m 범위 ${r300On ? "끄기" : "보기"}</button></div>` + facBlock("haz", "위험·유해시설 추가")
@@ -1155,8 +1587,10 @@ function panel4(){
   <div style="display:flex;flex-direction:column;gap:6px"><div class="lab">표시할 것</div>
     <div class="row">${ck("near","필지 경계")}<select class="inp sm" style="width:auto" data-near-r>${[100,200,300,500].map(r => `<option value="${r}" ${ly.nearR===r?"selected":""}>반경 ${r}m</option>`).join("")}</select>
       <button class="btn sm" data-act="near">${nearFeats.length ? "다시 불러오기" : "불러오기"}</button></div>
-    ${ck("project","사업지")}${ck("site","교지 · 학교 이름")}${ck("zones","절대 · 상대보호구역")}${ck("dims","사업지 ~ 교지 이격거리 치수선")}${ck("facs","주변 시설")}${ck("routes","통학로")}${ck("walks","보도 · 자전거길")}
+    ${ck("project","사업지")}${ck("site","교지 · 학교 이름")}${ck("zones","절대 · 상대보호구역")}<div style="font-size:13px;color:#4a5260;margin-top:4px">이격거리 치수선</div>${ck("dims","사업지 ~ 교지")}${ck("dimsFac","교지 ~ 공원·문화시설 (가장 가까운 것)")}${ck("dimsEnt","교문 ~ 단지 출입구")}<div style="font-size:13px;color:#4a5260;margin-top:4px">주변 시설 (종류별)</div>
+    ${Object.entries(FAC_TYPES).filter(([k]) => state.facs.some(f => f.type === k)).map(([k,t]) => `<label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" data-pfac="${k}" ${facShown(d, k)?"checked":""}>${swatch("fac_"+k, 18, 11)}${t.name}</label>`).join("") || `<div class="muted">넣은 시설이 없어요 (3단계)</div>`}${ck("routes","통학로")}${ck("walks","보도 · 자전거길")}${ck("safety","공사 중 안전대책 (요원 박스·기호·경로·통로·크레인)")}${state.overlays.length ? ck("overlay","붙인 도면·배치도") : ""}
   </div>
+  <button class="btn sm" data-act="openStyle">색 · 선 · 해치 바꾸기</button>
   <div><label class="lab" for="ptitle">제목</label><input class="inp" id="ptitle" data-ptitle value="${esc(pr.title)}"></div>
   <div><div class="lab">용지</div><div class="seg">${[["land","A4 가로"],["port","A4 세로"]].map(([k,n]) => `<button class="${pr.paper===k?"on":""}" data-paper="${k}">${n}</button>`).join("")}</div></div>
   <div class="muted">지도를 끌고 확대해서 틀 안에 맞춘 뒤 저장하세요. 그림 저장은 선·글씨만 담아요 (바탕지도 사진은 빠져요). 바탕지도까지 필요하면 화면 캡처(Win+Shift+S)를 쓰세요.</div>
@@ -1195,7 +1629,18 @@ function locRows(){
     { g:"보행자전용도로 연계 및 유효 보도폭", e:"보행자도로 연계", k:"link", f:r => state.manual.link[r.s.id] || "-" },
     { g:"", e:"2m 이상 유효 보도폭 확보", k:"sw", f:() => state.walks.some(w => w.width) ? (state.walks.some(w => w.width >= 2) ? "○" : "×") : "-" },
     { g:"교문과 아파트단지 출입구 거리 최소화", e:"단지출입구와 교문 이격거리(m)", k:"ent", before:"-", f:r => r.ent ? `약 ${fmt(r.ent.d)}m` : "-" },
-    { g:"보호구역 내 위험시설", e:"300m 이내 위험·유해시설", k:"haz", f:r => r.haz === null ? "-" : r.haz.length ? "미부합" : "부합" }
+    { g:"보호구역 내 위험시설", e:"300m 이내 위험·유해시설", k:"haz", f:r => r.haz === null ? "-" : r.haz.length ? "미부합" : "부합" },
+    ...(() => { const c = safeCounts(); const v = (n, u) => n ? `${n}${u}` : "-";
+      return [
+        { g:"공사로 인한 통학안전 확보", e:"공사차량 진출입구(개)", k:"s_ent", before:"-", f:() => v(c.ent, "개") },
+        { g:"", e:"안전요원(인)", k:"s_staff", before:"-", f:() => v(c.staff + c.staffS, "인") },
+        { g:"", e:"공사안내(안전)표지판(개)", k:"s_sign", before:"-", f:() => v(c.sign, "개") },
+        { g:"", e:"CCTV 설치대수(대)", k:"s_cctv", before:"-", f:() => v(c.cctv, "대") },
+        { g:"", e:"입출차 경고등(개)", k:"s_light", before:"-", f:() => v(c.light, "개") },
+        { g:"", e:"반사경(개)", k:"s_mirror", before:"-", f:() => v(c.mirror, "개") },
+        { g:"", e:"철제 지붕형 보행통로", k:"s_roof", before:"-", f:() => c.roofLen ? `약 ${fmt(c.roofLen)}m` : "-" },
+        { g:"", e:"타워크레인 운영대수(기)", k:"s_crane", before:"-", f:() => v(c.crane, "기") }
+      ]; })()
   ];
 }
 function locData(rows){
@@ -1247,6 +1692,7 @@ function sentences(rows){
   if (rd.length){ out.push("", "[학교 인접도로]"); rd.forEach(r => out.push(`· (${sName(r.s)})는 ${roadText(r.s.id)} 도로와 연계되어 있음`)); }
   const ent = rows.filter(r => r.ent);
   if (ent.length){ out.push("", "[교문과 아파트단지 출입구 거리]"); ent.forEach(r => out.push(`· (${sName(r.s)}) ${r.ent.toGate ? "교문과" : "교지경계와"} 단지출입구('${r.ent.f.name}') 간 이격거리는 약 ${fmt(r.ent.d)}m임`)); }
+  const ss = safeSentence(); if (ss){ out.push("", "[공사 중 통학안전]", ss); }
   const hz = rows.filter(r => r.haz !== null);
   if (hz.length){ out.push("", "[보호구역 내 위험시설]"); hz.forEach(r => out.push(r.haz.length ? `· (${sName(r.s)}) 교지경계 300m 이내에 '${r.haz.map(h=>h.f.name).join("', '")}'이(가) 위치하여 '미부합'으로 평가함` : `· (${sName(r.s)}) 교지경계 300m 이내에 위험시설 또는 유해시설이 없어 '부합'으로 평가함`)); }
   return out.join("\n");
@@ -1258,17 +1704,25 @@ async function copy(text, msg){
 
 /* ===== 그림 저장 ===== */
 function textW(t, fs){ let w = 0; for (const ch of String(t)) w += /[가-힣]/.test(ch) ? fs * 0.98 : fs * 0.58; return w; }
-function buildSVG(){
+function buildSVG(ovData){
   const sz = map.getSize(), W = sz.x, H = sz.y;
   const P = c => { const p = map.latLngToContainerPoint([c[1], c[0]]); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; };
   const font = getComputedStyle(document.body).fontFamily.replace(/"/g, "'");
   const lfs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--lblfs")) || 12;
   const sc = buildScene(dispNow());
-  const st = s => `stroke="${s.color}" stroke-width="${s.weight || 1}" ${s.dashArray ? `stroke-dasharray="${s.dashArray}"` : ""} stroke-opacity="${s.opacity ?? 1}" ${s.fill === false ? 'fill="none"' : `fill="${s.fillColor || "none"}" fill-opacity="${s.fillOpacity ?? 0.2}"`}`;
-  const out = [`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${font}">`, `<rect width="${W}" height="${H}" fill="#ffffff"/>`];
+  const st = (k, noFill) => { const s = styles[k], dash = DASHES[s.dash] && DASHES[s.dash][1];
+    const f = noFill || isLineKey(k) ? 'fill="none"' : hatchOn(s) ? `fill="url(#xp-${k})"` : `fill="${s.fill}" fill-opacity="${s.fillOp}"`;
+    return `stroke="${s.stroke}" stroke-width="${s.weight}" stroke-opacity="${s.lineOp}" ${dash ? `stroke-dasharray="${dash}"` : ""} ${s.dash === "dot" ? 'stroke-linecap="round"' : ""} ${f}`; };
+  const out = [`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${font}">`, `<defs>${allPatterns("xp-")}</defs>`, `<rect width="${W}" height="${H}" fill="#ffffff"/>`];
+  if (ovData && dispNow().overlay !== false) state.overlays.filter(o => o.show && ovData[o.id]).forEach(o => {
+    const c = map.latLngToContainerPoint([o.center[1], o.center[0]]);
+    const mpp = map.distance(map.containerPointToLatLng([c.x - 50, c.y]), map.containerPointToLatLng([c.x + 50, c.y])) / 100;
+    const w = o.widthM / mpp, h = w / (o.aspect || 1);
+    out.push(`<image href="${ovData[o.id]}" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" opacity="${o.opacity}" preserveAspectRatio="none" transform="translate(${c.x} ${c.y}) rotate(${o.rot})"/>`);
+  });
   sc.items.forEach(it => {
-    if (it.k === "poly") polysOf(it.geom).forEach(poly => out.push(`<path fill-rule="evenodd" d="${poly.map(r => "M" + r.map(P).join("L") + "Z").join(" ")}" ${st(it.style)} stroke-linejoin="round"/>`));
-    else if (it.k === "line") out.push(`<polyline points="${it.coords.map(P).join(" ")}" ${st({ ...it.style, fill:false })} stroke-linejoin="round"/>`);
+    if (it.k === "poly") polysOf(it.geom).forEach(poly => out.push(`<path fill-rule="evenodd" d="${poly.map(r => "M" + r.map(P).join("L") + "Z").join(" ")}" ${st(it.sk)} stroke-linejoin="round"/>`));
+    else if (it.k === "line") out.push(`<polyline points="${it.coords.map(P).join(" ")}" ${st(it.sk, true)} stroke-linejoin="round"/>`);
     else if (it.k === "dot"){ const [x,y] = P(it.pt).split(","); out.push(`<circle cx="${x}" cy="${y}" r="${it.r}" fill="${it.color}" stroke="#fff" stroke-width="2"/>`); }
   });
   const showN = map.getZoom() >= 17;
@@ -1277,8 +1731,19 @@ function buildSVG(){
     if (lb.k === "nlabel"){ if (showN) out.push(`<text x="${x}" y="${y + 3}" font-size="${lfs - 2}" text-anchor="middle" fill="#222" stroke="#fff" stroke-width="3" paint-order="stroke">${esc(lb.text)}</text>`); return; }
     const w = textW(lb.text, lfs) + 16, h = lfs + 10;
     const dim = lb.k === "dim";
-    out.push(`<rect x="${x - w/2}" y="${y - h/2}" width="${w}" height="${h}" rx="${h/2}" fill="${dim ? "#ffffff" : lb.color}" ${dim ? 'stroke="#1f2328"' : ""}/>`);
-    out.push(`<text x="${x}" y="${y + lfs*0.36}" font-size="${lfs}" font-weight="700" text-anchor="middle" fill="${dim ? "#1f2328" : "#ffffff"}">${esc(lb.text)}</text>`);
+    out.push(`<rect x="${x - w/2}" y="${y - h/2}" width="${w}" height="${h}" rx="${h/2}" fill="${dim ? "#ffffff" : lb.color}" ${dim ? `stroke="${styles.dim.stroke}"` : ""}/>`);
+    out.push(`<text x="${x}" y="${y + lfs*0.36}" font-size="${lfs}" font-weight="700" text-anchor="middle" fill="${dim ? styles.dim.stroke : "#ffffff"}">${esc(lb.text)}</text>`);
+  });
+  // 안전대책 기호 · 요원 박스
+  (sc.icons || []).forEach(p => { const [x,y] = P(p.pt).split(",").map(Number); out.push(`<g transform="translate(${x-12} ${y-12}) rotate(${p.rot || 0} 12 12)">${SAFE_ICONS[p.type].svg}</g>`); });
+  (sc.posts || []).forEach(p => {
+    const [ax, ay] = P(p.pt).split(",").map(Number), [bx, by] = P(p.box || boxDefault(p.pt)).split(",").map(Number);
+    const ics = POST_ICONS.filter(k => p.icons[k]), iw = Math.max(ics.length * 20, textW(p.name, lfs) + 10), bw = iw + 10, bh = 20 + lfs + 8;
+    out.push(`<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="#868e96" stroke-width="1.2"/><circle cx="${ax}" cy="${ay}" r="4" fill="#15aabf" stroke="#fff" stroke-width="1.5"/>`);
+    out.push(`<rect x="${bx - bw/2}" y="${by - bh/2}" width="${bw}" height="${bh}" rx="5" fill="#fff" stroke="#495057" stroke-width="1.5"/>`);
+    ics.forEach((k, i) => out.push(`<g transform="translate(${bx - ics.length*10 + i*20 + 1} ${by - bh/2 + 3}) scale(0.75)">${SAFE_ICONS[k].svg}</g>`));
+    const nw = textW(p.name, lfs) + 10;
+    out.push(`<rect x="${bx - nw/2}" y="${by - bh/2 + 22}" width="${nw}" height="${lfs + 4}" rx="3" fill="#2f9e44"/><text x="${bx}" y="${by - bh/2 + 22 + lfs}" font-size="${lfs}" font-weight="700" text-anchor="middle" fill="#fff">${esc(p.name)}</text>`);
   });
   // 제목
   if (state.print.title){ const tw = textW(state.print.title, 14) + 24; out.push(`<rect x="12" y="12" width="${tw}" height="30" fill="#fff" stroke="#c9ced6"/><text x="${12 + tw/2}" y="32" font-size="14" font-weight="700" text-anchor="middle" fill="#1f2328">${esc(state.print.title)}</text>`); }
@@ -1293,11 +1758,11 @@ function buildSVG(){
   if (li.length){
     const lw = Math.max(...li.map(([n]) => textW(n, 12))) + 50, lh = 30 + li.length * 21, lx = W - lw - 12, ly0 = H - lh - 12;
     out.push(`<rect x="${lx}" y="${ly0}" width="${lw}" height="${lh}" fill="#fff" stroke="#c9ced6"/><text x="${lx + 12}" y="${ly0 + 20}" font-size="12" font-weight="700" fill="#1f2328">범 례</text>`);
-    li.forEach(([n, css], i) => {
-      const yy = ly0 + 32 + i * 21, line = /height:\s*[46]px/.test(css);
-      const bg = (css.match(/background:([^;]+)/) || [])[1], bd = (css.match(/border:\s*2px\s+(\w+)\s+(#[0-9a-f]+)/i) || []);
-      if (line) out.push(`<rect x="${lx + 12}" y="${yy + 4}" width="20" height="5" fill="${bg}"/>`);
-      else out.push(`<rect x="${lx + 12}" y="${yy}" width="20" height="12" fill="${bg ? bg.replace(/rgba?\(([^)]+)\)/, (m) => m) : "none"}" ${bd[2] ? `stroke="${bd[2]}" stroke-width="2" ${bd[1] === "dashed" ? 'stroke-dasharray="4 3"' : bd[1] === "dotted" ? 'stroke-dasharray="1.5 3"' : ""}` : ""}/>`);
+    li.forEach(([n, k], i) => {
+      const yy = ly0 + 32 + i * 21, sw = styles[k] || {}, dash = DASHES[sw.dash] && DASHES[sw.dash][1];
+      if (k.startsWith("sp_")) out.push(`<g transform="translate(${lx + 13} ${yy - 3}) scale(0.75)">${SAFE_ICONS[k.slice(3)].svg}</g>`);
+      else if (isLineKey(k)) out.push(`<line x1="${lx + 12}" y1="${yy + 6}" x2="${lx + 32}" y2="${yy + 6}" stroke="${sw.stroke}" stroke-width="${Math.min(sw.weight, 6)}" stroke-opacity="${sw.lineOp}" ${dash ? `stroke-dasharray="${dash}"` : ""}/>`);
+      else out.push(`<rect x="${lx + 12}" y="${yy}" width="20" height="12" ${st(k).replace(/stroke-width="[^"]+"/, `stroke-width="${Math.min(sw.weight, 2.5)}"`)}/>`);
       out.push(`<text x="${lx + 40}" y="${yy + 11}" font-size="12" fill="#1f2328">${esc(n)}</text>`);
     });
   }
@@ -1306,9 +1771,13 @@ function buildSVG(){
 }
 function download(blob, name){ const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
 function fileBase(){ return (state.print.title || state.name || "위치도").replace(/[<>:"/\\|?*]/g, "").trim() || "위치도"; }
-function exportImage(kind){
+async function exportImage(kind){
   if (!map) return;
-  const { svg, W, H } = buildSVG();
+  const ovData = {};
+  for (const o of state.overlays.filter(o => o.show && ovUrl[o.id])){
+    try { const b = await (await fetch(ovUrl[o.id])).blob(); ovData[o.id] = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); }); } catch(e){}
+  }
+  const { svg, W, H } = buildSVG(ovData);
   if (kind === "svg"){ download(new Blob([svg], { type:"image/svg+xml" }), fileBase() + ".svg"); toast("SVG로 저장했어요"); return; }
   const img = new Image();
   img.onload = () => {
@@ -1340,7 +1809,7 @@ function switchProject(id){
   state = normalize(ls("eduMap.p." + id));
   nearFeats = []; vecFeats = []; vecStat = ""; autoRes = []; schoolCands = []; openItem = null; mode = null;
   $("#modeBar").style.display = "none";
-  goStep(1); fitAll(true);
+  goStep(1); fitAll(true); loadOverlayImages();
 }
 function newProject(st){
   const id = uid("p"); st = normalize(st);
@@ -1367,6 +1836,14 @@ document.addEventListener("click", async e => {
       case "near": if (nearOn || (step !== 4 && nearFeats.length)){ nearFeats = []; nearOn = false; redraw(); } else { nearOn = await drawNear(); } renderPanel(); renderLayerPanel(); break;
       case "fit": fitAll(); break;
       case "lyClose": toggleLayerPanel(false); break;
+      case "addOverlay": $("#ovIn").click(); break;
+      case "addPost": setMode(on("safePost") ? null : { type:"safePost" }); break;
+      case "copySafe": copy(safeTable().map(r => r.join("\t")).join("\n"), "안전시설 설치계획 표를 복사했어요"); break;
+      case "copySafeText": { const t = safeSentence(); copy(t || "-", t ? "문장을 복사했어요" : "아직 넣은 안전대책이 없어요"); break; }
+      case "openStyle": { const lp = $("#layerPanel"); lp.style.display = "block"; renderLayerPanel(); $("#chipLayer").classList.add("on"); const h = [...lp.querySelectorAll("h4")].find(x => /모양/.test(x.textContent)); if (h) lp.scrollTop = h.offsetTop - 10; break; }
+      case "styleReset": styles[styleKey] = { ...DEF_STYLE[styleKey] }; saveStyles(); redraw(); renderLayerPanel(); break;
+      case "styleResetAll": if (confirm("모든 모양을 기본값으로 되돌릴까요?")){ Object.keys(DEF_STYLE).forEach(k => styles[k] = { ...DEF_STYLE[k] }); saveStyles(); redraw(); renderLayerPanel(); } break;
+      case "msgClose": $("#mapMsg").style.display = "none"; break;
       case "copyRes": { const rows = state.schools.map(schoolRow); copy(resTab === "loc" ? locTSV(rows) : resTab === "target" ? (({head, body}) => [head, ...body].map(r => r.join("\t")).join("\n"))(targetData(rows)) : sentences(rows), resTab === "text" ? "문장을 복사했어요" : "표를 복사했어요 (한글·엑셀에 붙여넣기)"); break; }
       case "copyAllText": copy(sentences(state.schools.map(schoolRow)), "평가 문장을 복사했어요"); break;
       case "dlgClose": closeDlg(); break;
@@ -1398,6 +1875,19 @@ document.addEventListener("click", async e => {
   else if (d.wedit) setMode(on("walk", d.wedit) ? null : { type:"walk", id:d.wedit });
   else if (d.delwalk){ if (confirm("이 보도를 지울까요?")){ state.walks = state.walks.filter(x => x.id !== d.delwalk); if (mode && mode.id === d.delwalk){ mode = null; $("#modeBar").style.display = "none"; } changed(); } }
   else if (d.vec) drawVec(d.vec);
+  else if (d.crane) setMode(on("crane", d.crane) ? null : { type:"crane", sub:d.crane });
+  else if (d.delcr){ state.safety.cranes = state.safety.cranes.filter(x => x.id !== d.delcr); changed(); }
+  else if (d.ovsel){ ovSel = ovSel === d.ovsel ? null : d.ovsel; renderPanel(); }
+  else if (d.ovmove) setMode(on("ovMove", d.ovmove) ? null : { type:"ovMove", id:d.ovmove });
+  else if (d.ovfit){ const o = state.overlays.find(x => x.id === d.ovfit); if (o){ const t = fitTarget(); o.center = t.center; o.widthM = Math.round(t.widthM); save(); syncOverlays(); renderPanel(); } }
+  else if (d.ovnudge){ const o = state.overlays.find(x => x.id === d.ovnudge); if (o){ nudgeOverlay(o, Number(d.x), Number(d.y)); save(); syncOverlays(); } }
+  else if (d.delov){ if (confirm("붙인 도면을 지울까요?")){ state.overlays = state.overlays.filter(x => x.id !== d.delov); idb.del(d.delov).catch(() => {}); if (ovUrl[d.delov]) URL.revokeObjectURL(ovUrl[d.delov]); delete ovUrl[d.delov]; changed(); syncOverlays(); } }
+  else if (d.safept) setMode(on("safept", d.safept) ? null : { type:"safept", sub:d.safept });
+  else if (d.safeline || d.safearea){ const type = d.safeline || d.safearea, l = { id:uid("sl"), type, pts:[] }; (d.safeline ? state.safety.lines : state.safety.areas).push(l); save(); setMode({ type:"safeShape", id:l.id }); }
+  else if (d.sledit) setMode(on("safeShape", d.sledit) ? null : { type:"safeShape", id:d.sledit });
+  else if (d.delsl){ const S = state.safety; S.lines = S.lines.filter(x => x.id !== d.delsl); S.areas = S.areas.filter(x => x.id !== d.delsl); if (mode && mode.id === d.delsl){ mode = null; $("#modeBar").style.display = "none"; } changed(); }
+  else if (d.delsp){ state.safety.pts = state.safety.pts.filter(x => x.id !== d.delsp); changed(); }
+  else if (d.delpost){ state.safety.posts = state.safety.posts.filter(x => x.id !== d.delpost); changed(); }
   else if (d.base){ ly.base = d.base; saveLy(); setBase(); renderPanel(); renderLayerPanel(); }
   else if (d.preset){ state.print.preset = d.preset; state.print.disp = null; changed(); }
   else if (d.paper){ state.print.paper = d.paper; save(); layoutFrame(); renderPanel(); }
@@ -1416,6 +1906,21 @@ document.addEventListener("click", async e => {
 document.addEventListener("change", e => {
   const t = e.target, d = t.dataset;
   if (d.show !== undefined){ const s = findS(d.show); if (s){ showOf(s)[d.k] = t.checked; changed(); } return; }
+  if (d.stylekey !== undefined){ styleKey = t.value; renderLayerPanel(); return; }
+  if (d.st){ const v = ["weight","lineOp","fillOp","gap"].includes(d.st) ? Number(t.value) : t.value; styles[styleKey][d.st] = v; saveStyles(); redraw(); renderLayerPanel(); return; }
+  if (d.crname){ const c = findCr(d.crname); if (c){ c.name = t.value.trim() || c.name; changed(); } return; }
+  if (d.crkind){ const c = findCr(d.crkind); if (c){ c.kind = t.value; changed(); } return; }
+  if (d.crr){ const c = findCr(d.crr); if (c){ c.r = Math.max(1, Number(t.value) || c.r); changed(); } return; }
+  if (d.ovshow){ const o = state.overlays.find(x => x.id === d.ovshow); if (o){ o.show = t.checked; save(); syncOverlays(); } return; }
+  if (d.ovw){ const o = state.overlays.find(x => x.id === d.ovw); if (o){ o.widthM = Math.max(1, Number(t.value) || o.widthM); save(); syncOverlays(); } return; }
+  if (d.ovrotn){ const o = state.overlays.find(x => x.id === d.ovrotn); if (o){ o.rot = Number(t.value) || 0; save(); syncOverlays(); renderPanel(); } return; }
+  if (d.ovstep !== undefined){ ovStep = Number(t.value); return; }
+  if (d.ovscale){ const o = state.overlays.find(x => x.id === d.ovscale); if (o) delete o._base; save(); renderPanel(); return; }
+  if (d.ovrot || d.ovop){ save(); renderPanel(); return; }
+  if (d.posticon){ const p = findPost(d.posticon); if (p){ p.icons[d.k] = t.checked; changed(); } return; }
+  if (d.postname){ const p = findPost(d.postname); if (p){ p.name = t.value.trim() || p.name; changed(); } return; }
+  if (d.sprot){ const p = findSP(d.sprot); if (p){ p.rot = Number(t.value); save(); redraw(); } return; }
+  if (d.facvis){ facVis[d.facvis] = t.checked; ls("eduMap.facVis", facVis); redraw(); return; }
   if (d.ly){ ly.on = t.checked ? uniq([...ly.on, d.ly]) : ly.on.filter(x => x !== d.ly); saveLy(); applyLayers(); return; }
   if (d.nearR !== undefined){ ly.nearR = Number(t.value); saveLy(); if (nearFeats.length) drawNear(); return; }
   if (d.pname !== undefined){ state.name = t.value.trim() || "새 사업"; save(); renderRail(); return; }
@@ -1431,11 +1936,21 @@ document.addEventListener("change", e => {
   if (d.link){ state.manual.link[d.link] = t.value; changed(); }
   if (d.road){ const R = state.manual.roads; R[d.road] = R[d.road] || {}; R[d.road][d.dir] = R[d.road][d.dir] || {};
     R[d.road][d.dir][d.f] = d.f === "fn" ? t.value : (t.value === "" ? null : Number(t.value)); changed(); }
-  if (d.disp){ state.print.disp = { ...dispNow(), [d.disp]: t.checked }; save(); redraw(); renderPanel(); if (d.disp === "near" && t.checked && !nearFeats.length) drawNear(); }
+  if (d.pfac){ const cur = { ...(state.print.disp || {}) }; cur["f_" + d.pfac] = t.checked; if (t.checked) cur.facs = true; state.print.disp = cur; save(); redraw(); renderPanel(); return; }
+  if (d.disp){ state.print.disp = { ...(state.print.disp || {}), [d.disp]: t.checked }; save(); redraw(); renderPanel(); if (d.disp === "near" && t.checked && !nearFeats.length) drawNear(); }
   if (d.ptitle !== undefined){ state.print.title = t.value; save(); layoutFrame(); }
 });
 document.addEventListener("input", e => {
   const t = e.target;
+  if (t.dataset && t.dataset.st){ const v = ["weight","lineOp","fillOp","gap"].includes(t.dataset.st) ? Number(t.value) : t.value; styles[styleKey][t.dataset.st] = v; saveStyles(); redraw(); const sw = t.closest(".stg") && t.closest(".stg").previousElementSibling; if (sw) sw.innerHTML = `<span style="font-size:12px;color:var(--sub)">미리보기</span>${swatch(styleKey, 60, 26)}`; return; }
+  if (t.dataset && (t.dataset.ovrot || t.dataset.ovop || t.dataset.ovscale)){
+    const o = state.overlays.find(x => x.id === (t.dataset.ovrot || t.dataset.ovop || t.dataset.ovscale)); if (!o) return;
+    if (t.dataset.ovrot){ o.rot = Number(t.value); const n = document.querySelector(`[data-ovrotn="${o.id}"]`); if (n) n.value = o.rot; }
+    if (t.dataset.ovop) o.opacity = Number(t.value);
+    if (t.dataset.ovscale){ o._base = o._base || o.widthM; o.widthM = Math.round(o._base * Math.pow(1.02, Number(t.value)) * 10) / 10; const n = document.querySelector(`[data-ovw="${o.id}"]`); if (n) n.value = o.widthM; }
+    syncOverlays(); return;
+  }
+  if (t.dataset && t.dataset.sprot){ const p = findSP(t.dataset.sprot); if (p){ p.rot = Number(t.value); redraw(); } }
   if (t.dataset && t.dataset.after){ state.after[t.dataset.after] = t.textContent.trim(); save(); }
   if (t.id === "lyOp" && map){ ly.op = Number(t.value); saveLy(); applyLayers(); }
 });
@@ -1444,14 +1959,18 @@ $("#fileIn").addEventListener("change", async e => {
   try { const j = JSON.parse(await f.text()); const st = j && j.state ? j.state : j; if (!st || !st.project) throw 0; closeDlg(); newProject(st); toast(`‘${st.name || "가져온 사업"}’을(를) 가져왔어요`); }
   catch(err){ toast("이 파일은 가져올 수 없어요"); }
 });
+$("#ovIn").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) addOverlayFile(f); });
 $("#btnProjects").onclick = openProjects;
 $("#dlgBack").addEventListener("click", e => { if (e.target.id === "dlgBack") closeDlg(); });
 $("#modeDone").onclick = () => setMode(null);
-$("#modeUndo").onclick = () => { const r = mode && findL(mode.id); if (r && r.pts.length){ r.pts.pop(); changed(); updateModeText(); } };
+$("#modeUndo").onclick = () => {
+  if (mode && mode.type === "safept"){ const i = state.safety.pts.map(p => p.type).lastIndexOf(mode.sub); if (i >= 0){ state.safety.pts.splice(i, 1); changed(); } return; }
+  const r = mode && (mode.type === "safeShape" ? findSL(mode.id) : findL(mode.id)); if (r && r.pts.length){ r.pts.pop(); changed(); updateModeText(); } };
 $("#chipLayer").onclick = () => toggleLayerPanel();
 $("#chip300").onclick = () => { r300On = !r300On; $("#chip300").classList.toggle("on", r300On); redraw(); if (step === 3) renderPanel(); };
 $("#chipLeg").onclick = () => { legOn = !legOn; $("#chipLeg").classList.toggle("on", legOn); if (legOn) toggleLayerPanel(false); renderLegends(); };
 $("#chipFit").onclick = () => map && fitAll();
+$("#chipDim").onclick = () => { dimOn = !dimOn; $("#chipDim").classList.toggle("on", dimOn); redraw(); };
 window.addEventListener("resize", () => { if (step === 4) layoutFrame(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape"){ if ($("#dlgBack").style.display === "flex") closeDlg(); else if (mode) setMode(null); } });
 
@@ -1500,6 +2019,7 @@ applyUI();
 
 /* ===== 시작 ===== */
 initMap();
+loadOverlayImages();
 layoutFrame(); redraw(); renderPanel(); hints();
 </script>
 </body>
