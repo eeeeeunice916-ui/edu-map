@@ -53,6 +53,12 @@ body.big #mapWrap{height:100%;flex:1}
   padding:9px 14px;border-radius:10px;font-size:14px;z-index:3000;display:none;max-width:90vw}
 #zoneHint{position:absolute;left:10px;bottom:40px;z-index:900;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--sub);display:none}
 #legend{position:absolute;right:10px;top:110px;z-index:900;background:rgba(255,255,255,.95);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.9;display:none}
+#layerPanel{position:absolute;right:10px;top:110px;z-index:1001;width:290px;max-width:calc(100% - 20px);max-height:calc(100% - 180px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none}
+#layerPanel h4{margin:12px 0 4px;font-size:12px;color:var(--sub)}
+#layerPanel label{display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer}
+.lgsw{width:12px;height:12px;border-radius:2px;flex:none}
+.nearLbl{transform:translate(-50%,-50%);font-size:10px;color:#222;white-space:nowrap;text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 2px #fff}
+.zlo .nearLbl{display:none}
 #legend i{display:inline-block;width:18px;height:11px;margin-right:6px;vertical-align:-1px;border-radius:2px}
 /* 패널 */
 h1{font-size:18px;margin:0}
@@ -100,9 +106,7 @@ th{background:var(--soft);font-weight:600}
       </div>
       <div class="results" id="results" style="display:none"></div>
       <div class="chips">
-        <button class="chip on" id="chipCad">지적도</button>
-        <button class="chip" id="chipZone">용도지역</button>
-        <button class="chip" id="chipSat">위성지도</button>
+        <button class="chip" id="chipLayer">레이어</button>
         <button class="chip" id="chip300">300m 범위</button>
         <button class="chip" id="chipLeg">범례</button>
         <button class="chip" id="chipFit">전체 보기</button>
@@ -110,6 +114,7 @@ th{background:var(--soft);font-weight:600}
       </div>
     </div>
     <div id="legend"></div>
+    <div id="layerPanel"></div>
     <div id="zoneHint"></div>
     <div id="modeBar"><span id="modeText"></span><button id="modeUndo" style="display:none">되돌리기</button><button id="modeDone">완료</button></div>
   </div>
@@ -139,6 +144,11 @@ th{background:var(--soft);font-weight:600}
 
     <h2><span class="dot" style="background:#2e9e4f"></span>주변 시설</h2>
     <div class="muted" style="margin-bottom:8px">공원·녹지, 도서관·문화·체육시설, 단지출입구, 위험·유해시설을 넣으면 학교별 이격거리와 평가가 자동으로 나와요.</div>
+    <div class="row" style="margin-bottom:8px">
+      <button class="btn sm" id="autoPark">주변 공원·녹지 찾기</button>
+      <button class="btn sm" id="autoCult">주변 문화·체육시설 찾기</button>
+    </div>
+    <div id="autoList"></div>
     <div id="facList"></div>
     <div class="row">
       <select id="newFacType"></select>
@@ -163,7 +173,7 @@ th{background:var(--soft);font-weight:600}
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "2.1";
+const APP_VERSION = "2.2";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const STORE = "eduMap.v1";
@@ -336,16 +346,47 @@ const gradeTxt = sc => sc ? `${GRADE[sc]}(${sc})` : "-";
 const sName = s => s.short || s.name;
 
 /* ===== 지도 (브이월드 + Leaflet) ===== */
-let map, baseLayer, labelLayer, cadLayer, zoneLayer, drawLayer, popup;
-let zoneOn = false, satOn = false, cadOn = true, r300On = false, legOn = false, tileErrs = 0;
+let map, baseLayer, labelLayer, drawLayer, nearLayer, popup;
+let r300On = false, legOn = false, nearOn = false, tileErrs = 0;
 let mode = null; // {type:'project'|'school'|'gate'|'facP'|'facPt'|'route', id}
+
+// 브이월드 주제도 (WMS) — 하나씩 켜고 끄기
+const LAYERS = [
+  { g:"지적",        id:"cad",    name:"연속지적도",                 layers:"lp_pa_cbnd_bubun,lp_pa_cbnd_bonbun", styles:"lp_pa_cbnd_bubun_line,lp_pa_cbnd_bonbun_line", min:15, color:"#555" },
+  { g:"용도지역",    id:"uq111",  name:"도시지역 (주거·상업·공업·녹지)", layers:"lt_c_uq111", min:11, color:"#f2c94c" },
+  { g:"용도지역",    id:"uq112",  name:"관리지역",                   layers:"lt_c_uq112", min:11, color:"#c9a26b" },
+  { g:"용도지역",    id:"uq113",  name:"농림지역",                   layers:"lt_c_uq113", min:11, color:"#9bc36b" },
+  { g:"용도지역",    id:"uq114",  name:"자연환경보전지역",            layers:"lt_c_uq114", min:11, color:"#5fa36b" },
+  { g:"용도지구",    id:"uq121",  name:"경관지구",                   layers:"lt_c_uq121", min:12, color:"#7aa6d8" },
+  { g:"용도지구",    id:"uq123",  name:"고도지구",                   layers:"lt_c_uq123", min:12, color:"#8a8fd8" },
+  { g:"용도지구",    id:"uq124",  name:"방화지구",                   layers:"lt_c_uq124", min:12, color:"#e07a5f" },
+  { g:"용도지구",    id:"uq128",  name:"취락지구",                   layers:"lt_c_uq128", min:12, color:"#b08968" },
+  { g:"용도지구",    id:"uq129",  name:"개발진흥지구",               layers:"lt_c_uq129", min:12, color:"#d4a5d8" },
+  { g:"도시계획시설", id:"up151",  name:"도로",                       layers:"lt_c_upisuq151", min:13, color:"#9e9e9e" },
+  { g:"도시계획시설", id:"up152",  name:"교통시설 (주차장 등)",        layers:"lt_c_upisuq152", min:13, color:"#6c757d" },
+  { g:"도시계획시설", id:"up153",  name:"공간시설 (공원·녹지·광장)",   layers:"lt_c_upisuq153", min:13, color:"#2e9e4f" },
+  { g:"도시계획시설", id:"up154",  name:"유통·공급시설",              layers:"lt_c_upisuq154", min:13, color:"#b5838d" },
+  { g:"도시계획시설", id:"up155",  name:"공공·문화체육시설 (학교·도서관 등)", layers:"lt_c_upisuq155", min:13, color:"#8e44ad" },
+  { g:"도시계획시설", id:"up156",  name:"방재시설",                   layers:"lt_c_upisuq156", min:13, color:"#4d96ff" },
+  { g:"도시계획시설", id:"up157",  name:"보건위생시설",               layers:"lt_c_upisuq157", min:13, color:"#e76f51" },
+  { g:"도시계획시설", id:"up158",  name:"환경기초시설",               layers:"lt_c_upisuq158", min:13, color:"#6a994e" },
+  { g:"구역",        id:"up161",  name:"지구단위계획구역",           layers:"lt_c_upisuq161", min:12, color:"#e5989b" },
+  { g:"구역",        id:"ud801",  name:"개발제한구역",               layers:"lt_c_ud801", min:10, color:"#55a630" },
+  { g:"구역",        id:"um710",  name:"상수원보호구역",             layers:"lt_c_um710", min:10, color:"#0096c7" },
+  { g:"기타",        id:"spbd",   name:"건물 (도로명주소)",           layers:"lt_c_spbd", min:16, color:"#adb5bd" },
+  { g:"기타",        id:"ademd",  name:"읍면동 경계",                layers:"lt_c_ademd", min:10, color:"#343a40" }
+];
+let ly = { on:["cad"], base:"base", op:0.55, nearR:200 };
+try { ly = { ...ly, ...JSON.parse(localStorage.getItem("eduMap.layers") || "{}") }; } catch(e){}
+function saveLy(){ try { localStorage.setItem("eduMap.layers", JSON.stringify(ly)); } catch(e){} }
+const wms = {};
 
 function mapMsg(html){ const d = $("#mapMsg"); d.innerHTML = html; d.style.display = "block"; }
 const WMTS = (type, ext) => `https://api.vworld.kr/req/wmts/1.0.0/${VW_KEY}/${type}/{z}/{y}/{x}.${ext}`;
 function vwWms(layers, styles, o){
   return L.tileLayer.wms("https://api.vworld.kr/req/wms", {
     layers, styles, format:"image/png", transparent:true, version:"1.3.0",
-    key:VW_KEY, domain:DOMAIN, tileSize:512, ...o
+    key:VW_KEY, domain:DOMAIN, maxZoom:21, maxNativeZoom:19, ...o
   });
 }
 function onTileErr(){
@@ -353,39 +394,149 @@ function onTileErr(){
   if (tileErrs === 6) mapMsg(`<b>브이월드 지도를 불러오지 못했어요</b><br>브이월드 인증키의 서비스URL이 <b>${esc(location.origin)}</b> 인지, 키가 승인됐는지 확인해 주세요.`);
 }
 function setBase(){
-  if (baseLayer) map.removeLayer(baseLayer);
+  if (baseLayer){ map.removeLayer(baseLayer); baseLayer = null; }
   if (labelLayer){ map.removeLayer(labelLayer); labelLayer = null; }
-  baseLayer = satOn
-    ? L.tileLayer(WMTS("Satellite","jpeg"), { minZoom:6, maxZoom:19, maxNativeZoom:19 })
-    : L.tileLayer(WMTS("Base","png"), { minZoom:6, maxZoom:19, maxNativeZoom:19 });
+  const o = { minZoom:6, maxZoom:21, maxNativeZoom:19 };
+  $("#map").style.background = ly.base === "none" ? "#ffffff" : "#f2f3f5";
+  if (ly.base === "none") return;
+  baseLayer = ly.base === "sat" ? L.tileLayer(WMTS("Satellite","jpeg"), o)
+            : ly.base === "gray" ? L.tileLayer(WMTS("gray","png"), o)
+            : L.tileLayer(WMTS("Base","png"), o);
   baseLayer.on("tileerror", onTileErr).addTo(map).bringToBack();
-  if (satOn) labelLayer = L.tileLayer(WMTS("Hybrid","png"), { minZoom:6, maxZoom:19, maxNativeZoom:19 }).addTo(map);
+  if (ly.base === "sat") labelLayer = L.tileLayer(WMTS("Hybrid","png"), o).addTo(map);
+}
+function applyLayers(){
+  LAYERS.forEach(d => {
+    const want = ly.on.includes(d.id);
+    if (want && !wms[d.id]) wms[d.id] = vwWms(d.layers, d.styles || d.layers, { pane: d.id === "cad" ? "cad" : "zone", minZoom:d.min, opacity: d.id === "cad" ? 1 : ly.op });
+    if (wms[d.id]){
+      if (want && !map.hasLayer(wms[d.id])) wms[d.id].addTo(map);
+      if (!want && map.hasLayer(wms[d.id])) map.removeLayer(wms[d.id]);
+      if (d.id !== "cad") wms[d.id].setOpacity(ly.op);
+    }
+  });
+  hints();
 }
 function initMap(){
   if (!window.L){ mapMsg("<b>지도 라이브러리를 불러오지 못했어요</b><br>새로고침해 주세요."); return; }
-  map = L.map("map", { zoomControl:false, maxZoom:19 }).setView([37.5665, 126.9780], 16);
+  map = L.map("map", { zoomControl:false, maxZoom:21 }).setView([37.5665, 126.9780], 16);
   map.attributionControl.setPrefix("").addAttribution("© 브이월드");
   L.control.zoom({ position:"bottomright" }).addTo(map);
   L.control.scale({ imperial:false, position:"bottomleft" }).addTo(map);
   map.createPane("zone"); map.getPane("zone").style.zIndex = 250;
   map.createPane("cad");  map.getPane("cad").style.zIndex = 260;
-  setBase();
-  cadLayer  = vwWms("lp_pa_cbnd_bubun,lp_pa_cbnd_bonbun", "lp_pa_cbnd_bubun_line,lp_pa_cbnd_bonbun_line", { pane:"cad", minZoom:16 });
-  zoneLayer = vwWms("lt_c_uq111,lt_c_uq112,lt_c_uq113,lt_c_uq114", "lt_c_uq111,lt_c_uq112,lt_c_uq113,lt_c_uq114", { pane:"zone", opacity:0.55, minZoom:13 });
-  if (cadOn) cadLayer.addTo(map);
+  map.createPane("near"); map.getPane("near").style.zIndex = 380; map.getPane("near").style.pointerEvents = "none";
+  setBase(); applyLayers();
+  nearLayer = L.layerGroup().addTo(map);
   drawLayer = L.layerGroup().addTo(map);
   popup = L.popup({ maxWidth:260 });
   map.on("click", e => onMapClick(e.latlng.lng, e.latlng.lat));
-  map.on("zoomend", hints);
-  redraw(); renderAll(); hints();
+  map.on("zoomend", () => { hints(); map.getContainer().classList.toggle("zlo", map.getZoom() < 17); });
+  map.getContainer().classList.toggle("zlo", map.getZoom() < 17);
+  renderLayerPanel(); redraw(); renderAll();
   if (state.project.length || state.schools.length) fitAll();
 }
 function hints(){
-  const z = map.getZoom(), h = $("#zoneHint"), msg = [];
-  if (cadOn && z < 16) msg.push("지적도");
-  if (zoneOn && z < 13) msg.push("용도지역");
-  h.textContent = msg.join("·") + "은(는) 더 확대하면 보여요";
+  const z = map.getZoom(), h = $("#zoneHint");
+  const msg = LAYERS.filter(d => ly.on.includes(d.id) && z < d.min).map(d => d.name.split(" (")[0]);
+  h.textContent = (msg.length > 2 ? msg.slice(0,2).join("·") + ` 외 ${msg.length-2}개` : msg.join("·")) + "은(는) 더 확대하면 보여요";
   h.style.display = msg.length ? "block" : "none";
+}
+
+/* 레이어 패널 */
+function renderLayerPanel(){
+  const groups = [...new Set(LAYERS.map(d => d.g))];
+  $("#layerPanel").innerHTML = `
+    <div class="row" style="justify-content:space-between"><b>지도 레이어</b><button class="x" id="lyClose">✕</button></div>
+    <h4>바탕지도</h4>
+    <div class="row">${[["base","일반"],["gray","회색"],["sat","위성"],["none","흰 바탕"]].map(([k,n]) =>
+      `<button class="tab ${ly.base===k?"on":""}" data-base="${k}">${n}</button>`).join("")}</div>
+    <h4>필요 필지만 그리기</h4>
+    <div class="muted">사업지·학교 주변 필지 경계와 지번을 선으로 그려요. 흰 바탕과 같이 쓰면 깔끔한 위치도가 돼요.</div>
+    <div class="row" style="margin-top:6px">
+      <select id="nearR">${[100,200,300,500].map(r => `<option value="${r}" ${ly.nearR===r?"selected":""}>반경 ${r}m</option>`).join("")}</select>
+      <button class="btn sm ${nearOn?"on":""}" id="nearBtn">${nearOn ? "지우기" : "그리기"}</button>
+    </div>
+    ${groups.map(g => `<h4>${g}</h4>` + LAYERS.filter(d => d.g === g).map(d =>
+      `<label><input type="checkbox" data-ly="${d.id}" ${ly.on.includes(d.id)?"checked":""}><span class="lgsw" style="background:${d.color}"></span>${d.name}</label>`).join("")).join("")}
+    <h4>주제도 투명도</h4>
+    <input type="range" id="lyOp" min="0.15" max="1" step="0.05" value="${ly.op}" style="width:100%">
+    <div class="muted" style="margin-top:6px">일부 레이어는 지역에 따라 자료가 없을 수 있어요.</div>`;
+}
+function toggleLayerPanel(force){
+  const p = $("#layerPanel"), show = force !== undefined ? force : p.style.display !== "block";
+  p.style.display = show ? "block" : "none";
+  $("#chipLayer").classList.toggle("on", show);
+  if (show){ legOn = false; $("#chipLeg").classList.remove("on"); renderLegend(); }
+}
+
+/* 필요 필지만 그리기 (벡터) */
+async function vwFeaturesInBox(layer, bbox, maxPages){
+  const all = [];
+  for (let page = 1; page <= (maxPages || 4); page++){
+    const fs = await vwData(layer, { geomFilter:`BOX(${bbox.join(",")})`, size:1000, page });
+    all.push(...fs);
+    if (fs.length < 1000) break;
+  }
+  return all;
+}
+function focusGeoms(){
+  const gs = [...state.project.map(p=>p.geom), ...state.schools.flatMap(s => s.parcels.map(p=>p.geom))];
+  state.schools.forEach(s => { if (!s.parcels.length && s.gate) gs.push(turf.point(s.gate).geometry); });
+  return gs;
+}
+async function drawNear(){
+  const gs = focusGeoms();
+  if (!gs.length){ toast("사업지나 학교를 먼저 넣어 주세요"); return false; }
+  const buf = bufferOf(gs, ly.nearR); if (!buf){ toast("범위를 만들지 못했어요"); return false; }
+  toast("주변 필지 불러오는 중…", 15000);
+  let fs;
+  try { fs = await vwFeaturesInBox("LP_PA_CBND_BUBUN", turf.bbox(buf)); }
+  catch(e){ toast("필지 불러오기 실패: " + e.message, 5000); return false; }
+  fs = fs.filter(f => { try { return turf.booleanIntersects(turf.feature(f.geometry), buf); } catch(e){ return false; } });
+  nearLayer.clearLayers();
+  fs.forEach(f => {
+    L.geoJSON(f.geometry, { pane:"near", interactive:false, style:() => ({ color:"#3a3a3a", weight:1, fill:false }) }).addTo(nearLayer);
+    try {
+      const c = turf.pointOnFeature(turf.feature(f.geometry)).geometry.coordinates;
+      L.marker(ll(c), { pane:"near", interactive:false, icon:L.divIcon({ className:"", iconSize:null,
+        html:`<div class="nearLbl">${esc((f.properties && f.properties.jibun) || "")}</div>` }) }).addTo(nearLayer);
+    } catch(e){}
+  });
+  toast(`주변 필지 ${fs.length}개를 그렸어요`);
+  return true;
+}
+
+/* 주변 공원·문화체육시설 자동 찾기 */
+let autoRes = [];
+async function autoFind(type){
+  const sch = state.schools.filter(s => s.parcels.length || s.gate);
+  if (!sch.length){ toast("학교 교지나 교문을 먼저 넣어 주세요"); return; }
+  const R = type === "park" ? 500 : 800;
+  const buf = bufferOf(sch.flatMap(s => s.parcels.length ? s.parcels.map(p=>p.geom) : [turf.point(s.gate).geometry]), R);
+  toast("주변 시설 찾는 중…", 15000);
+  let fs;
+  try { fs = await vwFeaturesInBox(type === "park" ? "LT_C_UPISUQ153" : "LT_C_UPISUQ155", turf.bbox(buf), 2); }
+  catch(e){ toast("찾기 실패: " + e.message, 5000); return; }
+  $("#toast").style.display = "none";
+  const schoolPolys = s => schoolShape(s);
+  autoRes = fs.map((f, i) => {
+    const p = f.properties || {};
+    const name = p.dgm_nm || p.alias || p.uname || p.dgm_lv || "이름 없음";
+    const cat = p.uname || p.ucode || "";
+    let d = Infinity;
+    sch.forEach(s => { const x = shapeDist(schoolPolys(s), { polys:[f.geometry], pt:null }); if (x !== null) d = Math.min(d, x); });
+    return { i, type, name, cat, geom:f.geometry, d };
+  }).filter(r => r.d <= R && !(type === "cult" && r.d === 0))   // 학교 자신(교지와 겹침)은 제외
+    .sort((a,b) => a.d - b.d).slice(0, 15);
+  renderAuto();
+  if (!autoRes.length) toast("근처에서 찾지 못했어요. 필지로 직접 지정해 주세요", 3500);
+}
+function renderAuto(){
+  $("#autoList").innerHTML = autoRes.length ? `<div class="card"><b style="font-size:14px">찾은 시설</b> <span class="muted">(학교에서 가까운 순)</span>
+    ${autoRes.map(r => `<div class="parcel"><div class="t">${esc(r.name)}<br><span class="muted">${esc(r.cat)} · 최단 약 ${m1(r.d)}m</span></div>
+      <button class="btn sm" data-autoadd="${r.i}">+ 추가</button></div>`).join("")}
+    <div class="row" style="margin-top:6px"><button class="btn sm" id="autoClose">닫기</button></div></div>` : "";
 }
 
 const ll = c => [c[1], c[0]];
@@ -755,6 +906,12 @@ document.addEventListener("click", e => {
   const t = e.target.closest("button"); if (!t) return;
   const d = t.dataset;
   if (d.tab){ tab = d.tab; renderResult(); return; }
+  if (t.id === "autoClose"){ autoRes = []; renderAuto(); return; }
+  if (d.autoadd !== undefined){
+    const r = autoRes.find(x => String(x.i) === d.autoadd); if (!r) return;
+    state.facs.push({ id:uid("f"), type:r.type, name:r.name, parcels:[{ pnu:"auto_"+uid(""), addr:r.cat || r.name, jimok:"", zone:"", jiga:null, geom:r.geom }], point:null });
+    autoRes = autoRes.filter(x => x !== r); renderAuto(); changed(); toast(`${r.name}을(를) 넣었어요`); return;
+  }
   if (d.copy){ copy($("#resultBox")._tsv || "", d.copy === "tsv" ? "표를 복사했어요 (엑셀·한글에 붙여넣기)" : "문장을 복사했어요"); return; }
   if (d.del === "proj"){ state.project = state.project.filter(p => p.pnu !== d.pnu); changed(); }
   else if (d.del === "school"){ const s = findS(d.oid); if (s){ s.parcels = s.parcels.filter(p => p.pnu !== d.pnu); changed(); } }
@@ -806,11 +963,27 @@ $("#resetBtn").onclick = () => {
   if (!confirm("사업지·학교·시설·통학로를 모두 지우고 새로 시작할까요?")) return;
   state = { project:[], schools:[], facs:[], routes:[] }; mode = null; setMode(null); changed();
 };
-$("#chipCad").onclick = e => { if (!map) return; cadOn = !cadOn; e.target.classList.toggle("on", cadOn); cadOn ? cadLayer.addTo(map) : map.removeLayer(cadLayer); hints(); };
-$("#chipZone").onclick = e => { if (!map) return; zoneOn = !zoneOn; e.target.classList.toggle("on", zoneOn); zoneOn ? zoneLayer.addTo(map) : map.removeLayer(zoneLayer); hints(); };
-$("#chipSat").onclick = e => { if (!map) return; satOn = !satOn; e.target.classList.toggle("on", satOn); setBase(); };
+$("#chipLayer").onclick = () => toggleLayerPanel();
+$("#layerPanel").addEventListener("click", async e => {
+  const t = e.target.closest("button"); if (!t || !map) return;
+  if (t.id === "lyClose") toggleLayerPanel(false);
+  else if (t.dataset.base){ ly.base = t.dataset.base; saveLy(); setBase(); renderLayerPanel(); }
+  else if (t.id === "nearBtn"){
+    if (nearOn){ nearOn = false; nearLayer.clearLayers(); }
+    else nearOn = await drawNear();
+    renderLayerPanel();
+  }
+});
+$("#layerPanel").addEventListener("change", async e => {
+  const t = e.target; if (!map) return;
+  if (t.dataset.ly){ ly.on = t.checked ? [...new Set([...ly.on, t.dataset.ly])] : ly.on.filter(x => x !== t.dataset.ly); saveLy(); applyLayers(); }
+  if (t.id === "nearR"){ ly.nearR = Number(t.value); saveLy(); if (nearOn) nearOn = await drawNear(); renderLayerPanel(); }
+});
+$("#layerPanel").addEventListener("input", e => { if (e.target.id === "lyOp" && map){ ly.op = Number(e.target.value); saveLy(); applyLayers(); } });
+$("#autoPark").onclick = () => autoFind("park");
+$("#autoCult").onclick = () => autoFind("cult");
 $("#chip300").onclick = e => { r300On = !r300On; e.target.classList.toggle("on", r300On); redraw(); };
-$("#chipLeg").onclick = e => { legOn = !legOn; e.target.classList.toggle("on", legOn); renderLegend(); };
+$("#chipLeg").onclick = e => { legOn = !legOn; e.target.classList.toggle("on", legOn); if (legOn) toggleLayerPanel(false); renderLegend(); };
 $("#chipFit").onclick = () => map && fitAll();
 $("#chipBig").onclick = e => {
   const big = document.body.classList.toggle("big"); e.target.classList.toggle("on", big);
