@@ -158,6 +158,11 @@ th{background:var(--soft);font-weight:600}
       <button class="btn sm" id="addFac">+ 시설 추가</button>
     </div>
 
+    <h2><span class="dot" style="background:#868e96"></span>보도 (직접 그리기)</h2>
+    <div class="muted" style="margin-bottom:8px">브이월드에 보도 자료가 없어서 직접 그려요. 보도를 따라 점을 찍고 유효 보도폭을 적으면 2m 이상 여부가 표시돼요.</div>
+    <div id="walkList"></div>
+    <button class="btn sm" id="addWalk">+ 보도 그리기</button>
+
     <h2><span class="dot" style="background:#d6336c"></span>통학로</h2>
     <div class="muted" style="margin-bottom:8px">출발점(단지 출입구 등)부터 교문까지 길을 따라 점을 찍으면 도보거리·소요시간(0.7m/s)과 최대도보거리 평가가 나와요.</div>
     <div id="routeList"></div>
@@ -176,7 +181,7 @@ th{background:var(--soft);font-weight:600}
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "2.4";
+const APP_VERSION = "2.5";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const STORE = "eduMap.v1";
@@ -203,9 +208,9 @@ function toast(msg, ms=2200){ const t=$("#toast"); t.textContent=msg; t.style.di
 // 받침 여부로 조사 고르기 (와/과, 이/가)
 function josa(word, a, b){ const c = String(word).trim().slice(-1).charCodeAt(0); if (c < 0xAC00 || c > 0xD7A3) return a+"("+b+")"; return (c-0xAC00)%28 ? b : a; }
 
-let state = { project: [], schools: [], facs: [], routes: [] };
+let state = { project: [], schools: [], facs: [], routes: [], walks: [] };
 try { const s = JSON.parse(localStorage.getItem(STORE)); if (s && s.project) state = { ...state, ...s }; } catch(e){}
-state.facs = state.facs || []; state.routes = state.routes || [];
+state.facs = state.facs || []; state.routes = state.routes || []; state.walks = state.walks || [];
 state.schools.forEach(s => { if (s.short === undefined) s.short = ""; });
 const showOf = s => (s.show = s.show || { site:true, abs:true, rel:true });
 function save(){ try { localStorage.setItem(STORE, JSON.stringify(state)); } catch(e){} }
@@ -243,7 +248,13 @@ async function eduZoneAt(lng, lat){
 }
 // 속성에서 절대/상대 이름 뽑기
 function zoneText(p){ p = p || {}; return p.uname || p.dgm_nm || p.alias || Object.values(p).find(v => typeof v === "string" && /보호구역|정화구역/.test(v)) || ""; }
-function zoneKind(p){ const t = Object.values(p || {}).join(" "); return /절대/.test(t) ? "abs" : /상대/.test(t) ? "rel" : "etc"; }
+function zoneKind(p, geom){
+  const t = Object.values(p || {}).join(" ");
+  if (/절대/.test(t)) return "abs";
+  if (/상대/.test(t)) return "rel";
+  // 이름에 구분이 없으면 크기로: 절대(50m 범위)는 2만㎡ 미만, 상대(200m 범위)는 훨씬 큼
+  try { return turf.area(turf.feature(geom)) < 20000 ? "abs" : "rel"; } catch(e){ return "rel"; }
+}
 async function zoneAt(lng, lat){
   const layers = ["LT_C_UQ111","LT_C_UQ112","LT_C_UQ113","LT_C_UQ114"];
   const out = await Promise.all(layers.map(l =>
@@ -360,12 +371,13 @@ const sName = s => s.short || s.name;
 
 /* ===== 지도 (브이월드 + Leaflet) ===== */
 let map, baseLayer, labelLayer, drawLayer, nearLayer, popup;
+let vecLayer, vecStat = "";
 let r300On = false, legOn = false, nearOn = false, tileErrs = 0;
 let mode = null; // {type:'project'|'school'|'gate'|'facP'|'facPt'|'route', id}
 
 // 브이월드 주제도 (WMS) — 하나씩 켜고 끄기
 const LAYERS = [
-  { g:"교육환경",    id:"uo101",  name:"교육환경보호구역 (교육청 고시)", layers:"lt_c_uo101", min:12, color:"#f08c00" },
+  { g:"교육환경",    id:"uo101",  name:"교육환경보호구역 (그림, 색 구분 없음)", layers:"lt_c_uo101", min:12, color:"#f08c00" },
   { g:"지적",        id:"cad",    name:"연속지적도",                 layers:"lp_pa_cbnd_bubun,lp_pa_cbnd_bonbun", styles:"lp_pa_cbnd_bubun_line,lp_pa_cbnd_bonbun_line", min:15, color:"#555" },
   { g:"용도지역",    id:"uq111",  name:"도시지역 (주거·상업·공업·녹지)", layers:"lt_c_uq111", min:11, color:"#f2c94c" },
   { g:"용도지역",    id:"uq112",  name:"관리지역",                   layers:"lt_c_uq112", min:11, color:"#c9a26b" },
@@ -444,6 +456,7 @@ function initMap(){
   map.createPane("near"); map.getPane("near").style.zIndex = 380; map.getPane("near").style.pointerEvents = "none";
   setBase(); applyLayers();
   nearLayer = L.layerGroup().addTo(map);
+  vecLayer = L.layerGroup().addTo(map);
   drawLayer = L.layerGroup().addTo(map);
   popup = L.popup({ maxWidth:260 });
   map.on("click", e => onMapClick(e.latlng.lng, e.latlng.lat));
@@ -467,6 +480,14 @@ function renderLayerPanel(){
     <h4>바탕지도</h4>
     <div class="row">${[["base","일반"],["gray","회색"],["sat","위성"],["none","흰 바탕"]].map(([k,n]) =>
       `<button class="tab ${ly.base===k?"on":""}" data-base="${k}">${n}</button>`).join("")}</div>
+    <h4>브이월드 자료 직접 그리기</h4>
+    <div class="muted">지금 보이는 화면 범위의 자료를 받아 색을 나눠 그려요 (글씨체도 앱 설정을 따라요). 많이 넓으면 안 되니 동네 정도로 확대한 뒤 눌러 주세요.</div>
+    <div class="row" style="margin-top:6px">
+      <button class="btn sm" data-vec="zone">보호구역 (절대·상대)</button>
+      <button class="btn sm" data-vec="bike">자전거길</button>
+      <button class="btn sm" data-vec="clear">지우기</button>
+    </div>
+    ${vecStat ? `<div class="muted" style="margin-top:4px">${esc(vecStat)}</div>` : ""}
     <h4>필요 필지만 그리기</h4>
     <div class="muted">사업지·학교 주변 필지 경계와 지번을 선으로 그려요. 흰 바탕과 같이 쓰면 깔끔한 위치도가 돼요.</div>
     <div class="row" style="margin-top:6px">
@@ -491,6 +512,34 @@ function toggleLayerPanel(force){
   $("#chipLayer").classList.toggle("on", show);
   if (show){ legOn = false; $("#chipLeg").classList.remove("on"); renderLegend(); }
 }
+
+/* 브이월드 자료 직접 그리기 */
+async function drawVec(kind){
+  if (kind === "clear"){ vecLayer.clearLayers(); vecStat = ""; renderLayerPanel(); return; }
+  if (map.getZoom() < 14){ toast("조금 더 확대한 뒤 눌러 주세요 (동네 정도)"); return; }
+  const b = map.getBounds(), bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+  const layer = kind === "zone" ? "LT_C_UO101" : "LT_L_BYCYCLE01";
+  toast("자료 받는 중…", 15000);
+  let fs;
+  try { fs = await vwFeaturesInBox(layer, bbox, 3); }
+  catch(e){ vecStat = `${kind === "zone" ? "보호구역" : "자전거길"}: 브이월드 오류 — ${e.message}`; toast(vecStat, 6000); renderLayerPanel(); return; }
+  $("#toast").style.display = "none";
+  if (!fs.length){ vecStat = `${kind === "zone" ? "보호구역" : "자전거길"}: 이 화면 범위에는 브이월드 자료가 없어요`; toast(vecStat, 4000); renderLayerPanel(); return; }
+  if (kind === "zone"){
+    const items = fs.map(f => ({ f, k: zoneKind(f.properties, f.geometry), a: turf.area(turf.feature(f.geometry)) })).sort((x,y) => y.a - x.a);
+    items.forEach(({ f, k }) => addVec(f.geometry, k === "abs"
+      ? { color:"#f08c00", weight:2, fillColor:"#f08c00", fillOpacity:0.22 }
+      : { color:"#2f6fdf", weight:2, dashArray:"6 5", fillColor:"#2f6fdf", fillOpacity:0.08 }));
+    const na = items.filter(x => x.k === "abs").length;
+    const sample = zoneText(fs[0].properties);
+    vecStat = `보호구역 ${fs.length}개 (절대 ${na} · 상대 ${fs.length - na})${sample ? " · 자료 이름 예: " + sample : " · 자료에 절대/상대 이름이 없어 크기로 구분했어요"}`;
+  } else {
+    fs.forEach(f => addVec(f.geometry, { color:"#0ca678", weight:4, opacity:0.9 }));
+    vecStat = `자전거길 ${fs.length}개 구간`;
+  }
+  toast(vecStat, 4000); renderLayerPanel();
+}
+function addVec(g, style){ L.geoJSON(g, { pane:"near", interactive:false, style:() => style }).addTo(vecLayer); }
 
 /* 필요 필지만 그리기 (벡터) */
 async function vwFeaturesInBox(layer, bbox, maxPages){
@@ -585,7 +634,7 @@ async function loadOfficial(s){
   fs = fs.filter(f => { try { return turf.booleanIntersects(turf.feature(f.geometry), near); } catch(e){ return false; } });
   if (!fs.length){ toast("이 학교의 고시 보호구역 자료를 찾지 못했어요", 4000); return; }
   s.official = { abs: [], rel: [], names: [] };
-  fs.forEach(f => { const k = zoneKind(f.properties); s.official[k === "abs" ? "abs" : "rel"].push(f.geometry); const n = zoneText(f.properties); if (n) s.official.names.push(n); });
+  fs.forEach(f => { const k = zoneKind(f.properties, f.geometry); s.official[k === "abs" ? "abs" : "rel"].push(f.geometry); const n = zoneText(f.properties); if (n) s.official.names.push(n); });
   s.official.names = [...new Set(s.official.names)];
   s.zsrc = "official";
   changed();
@@ -593,7 +642,11 @@ async function loadOfficial(s){
 }
 const useOfficial = s => s.zsrc === "official" && s.official;
 // 절대보호구역: 학교출입문으로부터 직선거리 50m
-function absZone(s){ return s.gate ? turf.circle(s.gate, 50, { units:"meters", steps:72 }) : null; }
+// 신설(학교설립예정지)은 학교경계로부터 50m, 기존 학교는 출입문으로부터 50m
+function absZone(s){
+  if (s.planned){ const gs = s.parcels.map(p => p.geom); return gs.length ? bufferOf(gs, 50) : null; }
+  return s.gate ? turf.circle(s.gate, 50, { units:"meters", steps:72 }) : null;
+}
 // 상대보호구역: 학교경계로부터 직선거리 200m 중 절대보호구역 제외
 function relZone(s){
   const gs = s.parcels.map(p => p.geom); if (!gs.length) return null;
@@ -625,7 +678,7 @@ function redraw(){
     }
     if (abs && sh.abs){
       addGeo(abs.geometry, { color:"#f08c00", weight:2, fillColor:"#f08c00", fillOpacity:0.18 });
-      L.circleMarker(ll(s.gate), { radius:6, interactive:false, color:"#fff", weight:2, fillColor:"#f08c00", fillOpacity:1 }).addTo(drawLayer);
+      if (s.gate && !s.planned) L.circleMarker(ll(s.gate), { radius:6, interactive:false, color:"#fff", weight:2, fillColor:"#f08c00", fillOpacity:1 }).addTo(drawLayer);
     }
   });
   // 주변 시설
@@ -642,6 +695,14 @@ function redraw(){
   // 사업지
   state.project.forEach(p => addGeo(p.geom, { color:"#e5484d", weight:3, fillColor:"#e5484d", fillOpacity:0.3 }));
   // 통학로
+  state.walks.forEach(r => {
+    if (!r.pts.length) return;
+    L.polyline(r.pts.map(ll), { color:"#868e96", weight:7, opacity:0.75, lineCap:"butt", interactive:false }).addTo(drawLayer);
+    if (r.pts.length > 1){
+      const i = Math.floor((r.pts.length-1)/2), a = r.pts[i], b2 = r.pts[i+1];
+      addLabel([(a[0]+b2[0])/2, (a[1]+b2[1])/2], `${r.name}${r.width ? " " + r.width + "m" : ""}`, r.width && r.width < 2 ? "#c42b2b" : "#5c636a");
+    }
+  });
   state.routes.forEach(r => {
     if (!r.pts.length) return;
     L.polyline(r.pts.map(ll), { color:"#d6336c", weight:4, opacity:0.9, interactive:false }).addTo(drawLayer);
@@ -659,10 +720,11 @@ function renderLegend(){
   const items = [
     state.project.length && `<div><i style="background:rgba(229,72,77,.35);border:2px solid #e5484d"></i>사업지</div>`,
     state.schools.some(s=>s.parcels.length && showOf(s).site) && `<div><i style="background:rgba(47,111,223,.35);border:2px solid #2f6fdf"></i>학교(교지)</div>`,
-    state.schools.some(s=>s.gate && showOf(s).abs) && `<div><i style="background:rgba(240,140,0,.2);border:2px solid #f08c00;border-radius:50%"></i>절대보호구역(출입문 50m)</div>`,
-    state.schools.some(s=>s.parcels.length && showOf(s).rel) && `<div><i style="background:rgba(47,111,223,.08);border:2px dashed #2f6fdf"></i>상대보호구역(교지 200m, 절대 제외)</div>`,
+    state.schools.some(s=>s.gate && showOf(s).abs) && `<div><i style="background:rgba(240,140,0,.2);border:2px solid #f08c00;border-radius:50%"></i>절대보호구역</div>`,
+    state.schools.some(s=>s.parcels.length && showOf(s).rel) && `<div><i style="background:rgba(47,111,223,.08);border:2px dashed #2f6fdf"></i>상대보호구역</div>`,
     r300On && `<div><i style="border:2px dotted #6b7280"></i>교지경계 300m</div>`,
     ...Object.entries(FAC_TYPES).filter(([k]) => state.facs.some(f => f.type === k)).map(([k,t]) => `<div><i style="background:${t.color}"></i>${t.name}</div>`),
+    state.walks.length && `<div><i style="background:#868e96;height:6px;vertical-align:2px"></i>보도</div>`,
     state.routes.length && `<div><i style="background:#d6336c;height:4px;vertical-align:3px"></i>통학로</div>`
   ].filter(Boolean);
   lg.innerHTML = items.length ? `<b>범례</b>${items.join("")}` : `<b>범례</b><div class="muted">표시할 항목이 없어요</div>`;
@@ -674,6 +736,7 @@ function fitAll(){
   state.schools.forEach(s => s.gate && pts.push(s.gate));
   state.facs.forEach(f => f.point && pts.push(f.point));
   state.routes.forEach(r => pts.push(...r.pts));
+  state.walks.forEach(r => pts.push(...r.pts));
   if (!pts.length){ toast("아직 넣은 것이 없어요"); return; }
   map.fitBounds(L.latLngBounds(pts.map(ll)), { paddingTopLeft:[30,120], paddingBottomRight:[30,40] });
 }
@@ -682,6 +745,8 @@ function fitAll(){
 const findS = id => state.schools.find(x => x.id === id);
 const findF = id => state.facs.find(x => x.id === id);
 const findR = id => state.routes.find(x => x.id === id);
+const findW = id => state.walks.find(x => x.id === id);
+const findL = id => findR(id) || findW(id);
 async function onMapClick(lng, lat){
   map.closePopup();
   $("#results").style.display = "none";
@@ -695,8 +760,8 @@ async function onMapClick(lng, lat){
     if (f){ f.point = [lng, lat]; f.parcels = []; changed(); toast(`${f.name} 위치를 찍었어요`); }
     setMode(null); return;
   }
-  if (mode && mode.type === "route"){
-    const r = findR(mode.id);
+  if (mode && (mode.type === "route" || mode.type === "walk")){
+    const r = findL(mode.id);
     if (r){ r.pts.push([lng, lat]); changed(); updateModeText(); }
     return;
   }
@@ -724,15 +789,16 @@ function toggle(list, p, label){
 function changed(){ save(); redraw(); renderAll(); if (map) renderLayerPanel(); }
 function updateModeText(){
   const m = mode; if (!m) return;
-  const s = m.id && findS(m.id), f = m.id && findF(m.id), r = m.id && findR(m.id);
+  const s = m.id && findS(m.id), f = m.id && findF(m.id), r = m.id && findL(m.id);
   $("#modeText").textContent =
     m.type === "project" ? "사업지 필지를 눌러 넣고 빼세요" :
     m.type === "school" ? `${sName(s)} 교지 필지를 눌러 넣고 빼세요` :
     m.type === "gate" ? `${sName(s)} 교문(출입문) 위치를 한 번 누르세요` :
     m.type === "facP" ? `${f.name} 필지를 눌러 넣고 빼세요` :
     m.type === "facPt" ? `${f.name} 위치를 한 번 누르세요` :
+    m.type === "walk" ? `보도를 따라 점을 찍으세요 · 지금 약 ${fmt(routeLen(r))}m` :
     `길을 따라 점을 찍으세요 (교문에서 끝) · 지금 약 ${fmt(routeLen(r))}m`;
-  $("#modeUndo").style.display = m.type === "route" ? "inline-block" : "none";
+  $("#modeUndo").style.display = m.type === "route" || m.type === "walk" ? "inline-block" : "none";
 }
 function setMode(m){
   mode = m;
@@ -780,6 +846,7 @@ function schoolRow(s, i){
     out.dAny = out.dB !== null ? out.dB : out.dG;
     out.dir = dirName(shapeCenter(sh), centroidOf(pj.polys));
     out.zone = (out.dG !== null && out.dG <= 50) ? "절대보호구역" : (out.dB !== null && out.dB <= 200) ? "상대보호구역" : "보호구역 외";
+    if (s.planned && out.dB !== null) out.zone = out.dB <= 50 ? "절대보호구역" : out.dB <= 200 ? "상대보호구역" : "보호구역 외";
     if (useOfficial(s)){
       const hit = gsArr => gsArr.some(g => pj.polys.some(pp => { try { return turf.booleanIntersects(turf.feature(g), turf.feature(pp)); } catch(e){ return false; } }));
       out.zone = hit(s.official.abs) ? "절대보호구역" : hit(s.official.rel) ? "상대보호구역" : "보호구역 외";
@@ -836,7 +903,8 @@ function renderAll(){
       </div>
       <div class="row" style="margin-top:8px">
         <span class="muted">보호구역 기준</span>
-        <select data-zsrc="${s.id}"><option value="calc" ${!useOfficial(s)?"selected":""}>직접 계산 (50m·200m)</option><option value="official" ${useOfficial(s)?"selected":""} ${s.official?"":"disabled"}>교육청 고시 (브이월드)</option></select>
+        <select data-zsrc="${s.id}"><option value="calc" ${!useOfficial(s)?"selected":""}>직접 계산</option><option value="official" ${useOfficial(s)?"selected":""} ${s.official?"":"disabled"}>교육청 고시 (브이월드)</option></select>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type="checkbox" data-planned="${s.id}" ${s.planned?"checked":""}>신설(설립예정지)</label>
         <button class="btn sm" data-loadoff="${s.id}">${s.official ? "고시 다시 불러오기" : "고시 보호구역 불러오기"}</button>
       </div>
       <div style="margin-top:8px">${showRow(s)}</div>
@@ -859,6 +927,18 @@ function renderAll(){
     </div>`).join("");
 
   // 통학로
+  $("#walkList").innerHTML = state.walks.map(r => `<div class="card" style="border-left:4px solid #868e96">
+      <div class="row">
+        <input class="name" data-wname="${r.id}" value="${esc(r.name)}" placeholder="보도 이름 (예: 중동2로 북측 보도)">
+        <input class="short" style="width:80px" type="number" step="0.1" min="0" data-wwidth="${r.id}" value="${r.width ?? ""}" placeholder="폭(m)">
+        <button class="x" data-delwalk="${r.id}">✕</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn sm ${on("walk", r.id)}" data-wedit="${r.id}">${r.pts.length ? "이어 그리기" : "그리기"}</button>
+        <span class="muted">${r.pts.length > 1 ? `약 ${fmt(routeLen(r))}m` : "점을 2개 이상 찍어 주세요"}</span>
+        ${r.width ? `<span class="badge ${r.width >= 2 ? "out" : "bad"}">${r.width >= 2 ? "2m 이상 확보" : "2m 미만"}</span>` : ""}
+      </div>
+    </div>`).join("");
   $("#routeList").innerHTML = state.routes.map(r => `<div class="card" style="border-left:4px solid #d6336c">
       <div class="row">
         <select data-rschool="${r.id}" style="flex:1"><option value="">학교 선택</option>${state.schools.map(s => `<option value="${s.id}" ${s.id===r.schoolId?"selected":""}>${esc(sName(s))}</option>`).join("")}</select>
@@ -995,11 +1075,14 @@ document.addEventListener("click", e => {
   else if (d.gate) setMode(on("gate", d.gate) ? null : { type:"gate", id:d.gate });
   else if (d.facp) setMode(on("facP", d.facp) ? null : { type:"facP", id:d.facp });
   else if (d.facpt) setMode(on("facPt", d.facpt) ? null : { type:"facPt", id:d.facpt });
+  else if (d.wedit) setMode(on("walk", d.wedit) ? null : { type:"walk", id:d.wedit });
+  else if (d.delwalk){ if (confirm("이 보도를 지울까요?")){ state.walks = state.walks.filter(x => x.id !== d.delwalk); if (mode && mode.id === d.delwalk) mode = null; setMode(mode); changed(); } }
   else if (d.redit) setMode(on("route", d.redit) ? null : { type:"route", id:d.redit });
 });
 document.addEventListener("change", e => {
   const t = e.target, d = t.dataset;
   if (d.show){ const s = findS(d.show); if (s){ showOf(s)[d.k] = t.checked; save(); redraw(); renderAll(); if (map) renderLayerPanel(); } return; }
+  if (d.planned){ const s = findS(d.planned); if (s){ s.planned = t.checked; changed(); } return; }
   if (d.zsrc){ const s = findS(d.zsrc); if (s){ s.zsrc = t.value; changed(); } return; }
   if (d.sname){ const s = findS(d.sname); if (s){ s.name = t.value.trim() || s.name; changed(); } }
   if (d.sshort){ const s = findS(d.sshort); if (s){ s.short = t.value.trim(); changed(); } }
@@ -1007,11 +1090,13 @@ document.addEventListener("change", e => {
   if (d.fname){ const f = findF(d.fname); if (f){ f.name = t.value.trim() || f.name; changed(); } }
   if (d.ftype){ const f = findF(d.ftype); if (f){ f.type = t.value; changed(); } }
   if (d.rschool){ const r = findR(d.rschool); if (r){ r.schoolId = t.value; changed(); } }
+  if (d.wname){ const r = findW(d.wname); if (r){ r.name = t.value.trim(); changed(); } }
+  if (d.wwidth){ const r = findW(d.wwidth); if (r){ r.width = t.value === "" ? null : Number(t.value); changed(); } }
   if (d.rfrom){ const r = findR(d.rfrom); if (r){ r.from = t.value.trim(); changed(); } }
 });
 $("#projBtn").onclick = () => setMode(on("project") ? null : { type:"project" });
 $("#modeDone").onclick = () => setMode(null);
-$("#modeUndo").onclick = () => { const r = mode && findR(mode.id); if (r && r.pts.length){ r.pts.pop(); changed(); updateModeText(); } };
+$("#modeUndo").onclick = () => { const r = mode && findL(mode.id); if (r && r.pts.length){ r.pts.pop(); changed(); updateModeText(); } };
 $("#addSchool").onclick = () => {
   const id = uid("s");
   state.schools.push({ id, name:`학교${state.schools.length+1}`, short:"", kind:"초등학교", parcels:[], gate:null });
@@ -1027,6 +1112,12 @@ $("#addFac").onclick = () => {
   setMode(type === "gateA" || type === "cons" ? { type:"facPt", id } : { type:"facP", id });
   toast(type === "gateA" || type === "cons" ? "지도에서 출입구 위치를 눌러 주세요" : "이름을 고치고, 지도에서 시설 필지를 눌러 주세요 (점으로도 가능)", 3500);
 };
+$("#addWalk").onclick = () => {
+  const id = uid("w");
+  state.walks.push({ id, name:`보도${state.walks.length+1}`, width:null, pts:[] });
+  save(); setMode({ type:"walk", id });
+  toast("보도를 따라 점을 찍고 완료를 누르세요. 폭은 카드에 적어 주세요", 3500);
+};
 $("#addRoute").onclick = () => {
   const id = uid("r");
   state.routes.push({ id, schoolId: state.schools[0] ? state.schools[0].id : "", from:"단지 출입구", pts:[] });
@@ -1035,13 +1126,14 @@ $("#addRoute").onclick = () => {
 };
 $("#resetBtn").onclick = () => {
   if (!confirm("사업지·학교·시설·통학로를 모두 지우고 새로 시작할까요?")) return;
-  state = { project:[], schools:[], facs:[], routes:[] }; mode = null; setMode(null); changed();
+  state = { project:[], schools:[], facs:[], routes:[], walks:[] }; mode = null; setMode(null); changed();
 };
 $("#chipLayer").onclick = () => toggleLayerPanel();
 $("#layerPanel").addEventListener("click", async e => {
   const t = e.target.closest("button"); if (!t || !map) return;
   if (t.id === "lyClose") toggleLayerPanel(false);
   else if (t.dataset.base){ ly.base = t.dataset.base; saveLy(); setBase(); renderLayerPanel(); }
+  else if (t.dataset.vec){ drawVec(t.dataset.vec); }
   else if (t.id === "nearBtn"){
     if (nearOn){ nearOn = false; nearLayer.clearLayers(); }
     else nearOn = await drawNear();
