@@ -219,7 +219,7 @@ td[contenteditable]:focus{box-shadow:inset 0 0 0 2px var(--blue)}
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "3.5";
+const APP_VERSION = "3.6";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const KINDS = ["유치원","초등학교","중학교","고등학교","특수학교","기타"];
@@ -681,11 +681,12 @@ const DEF_STYLE = {
   panel:   { stroke:"#111111", weight:4, dash:"solid", lineOp:1 },
   roof:    { stroke:"#40c057", weight:8, dash:"solid", lineOp:0.95 },
   craneR:  { stroke:"#e8590c", weight:2, dash:"dash", lineOp:1, fill:"#ffa94d", fillOp:0.08, hatch:"none", gap:8 },
+  craneOut:{ stroke:"#e03131", weight:2, dash:"dash", lineOp:1, fill:"#ff8787", fillOp:0.15, hatch:"diag", gap:8 },
   wait:    { stroke:"#2f9e44", weight:1.5, dash:"solid", lineOp:1, fill:"#b2f2bb", fillOp:0.8, hatch:"none", gap:8 },
   stock:   { stroke:"#5c940d", weight:1.5, dash:"solid", lineOp:1, fill:"#d8f5a2", fillOp:0.8, hatch:"none", gap:8 }
 };
 Object.entries(FAC_TYPES).forEach(([k,t]) => DEF_STYLE["fac_"+k] = { stroke:t.color, weight:2, dash:"solid", lineOp:1, fill:t.color, fillOp:0.25, hatch:"none", gap:8 });
-const STYLE_NAMES = { proj:"사업지", site:"교지", abs:"절대보호구역", rel:"상대보호구역", r300:"교지경계 300m", near:"필지 경계", dim:"이격거리 치수선", walk:"보도", route:"통학로", bike:"자전거길", inRoute:"공사차량 진입경로", outRoute:"공사차량 진출경로", panel:"가설방음판넬", roof:"철제 지붕형 보행통로", wait:"공사차량 대기장소", stock:"자재 적치장소", craneR:"타워크레인 작업반경" };
+const STYLE_NAMES = { proj:"사업지", site:"교지", abs:"절대보호구역", rel:"상대보호구역", r300:"교지경계 300m", near:"필지 경계", dim:"이격거리 치수선", walk:"보도", route:"통학로", bike:"자전거길", inRoute:"공사차량 진입경로", outRoute:"공사차량 진출경로", panel:"가설방음판넬", roof:"철제 지붕형 보행통로", wait:"공사차량 대기장소", stock:"자재 적치장소", craneR:"크레인 작업반경(사업지 안)", craneOut:"크레인 작업반경(사업지 밖)" };
 Object.entries(FAC_TYPES).forEach(([k,t]) => STYLE_NAMES["fac_"+k] = t.name);
 const DASHES = { solid:["실선", null], dash:["파선", "6 5"], dot:["점선", "1.5 4"], dashdot:["일점쇄선", "9 4 2 4"], long:["긴 파선", "12 6"] };
 const HATCHES = { none:"없음", diag:"사선 ／", diag2:"역사선 ＼", cross:"격자 사선 ×", horiz:"가로선", vert:"세로선", grid:"격자 +", dots:"점" };
@@ -760,15 +761,37 @@ const GLYPHS = {
   star:    { name:"별",           f:bg => `<path d="M12 2.5 l2.9 6.2 6.6.7-5 4.5 1.4 6.6L12 17.2 6.1 20.5l1.4-6.6-5-4.5 6.6-.7z" fill="${bg}" stroke="${darken(bg)}" stroke-width="1"/>` },
   img:     { name:"내 이미지",    f:(bg, s) => s && s.img ? `<image href="${s.img}" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet"/>` : `<circle cx="12" cy="12" r="9" fill="${bg}"/>` }
 };
-// 귀여운 이모지 아이콘
-const EMOJI = { worker:"👷", child:"🚸", flag:"🚩", warn:"⚠️", cam:"📹", mirror:"🪞", siren:"🚨", barrier:"🚧", crane:"🏗️", school:"🏫", walk:"🚶", truck:"🚚", stop:"🛑", tlight:"🚦", vest:"🦺", police:"👮", bell:"🔔", star:"⭐", heart:"💛" };
-const EMOJI_FONT = "Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif";
-Object.entries(EMOJI).forEach(([k, e]) => GLYPHS["e_" + k] = { name:"이모지 " + e, f:bg => `<circle cx="12" cy="12" r="11.4" fill="${bg}" stroke="#fff" stroke-width="1.2"/><text x="12" y="16.6" font-size="13.5" text-anchor="middle" font-family="${EMOJI_FONT}">${e}</text>` });
+// 귀여운 아이콘 A (동글 캐릭터) · B (파스텔 타일) — 직접 그린 그림, 바탕색은 바꿀 수 있음
+const FACE = (cx, cy, sp = 2) => `<circle cx="${cx-sp}" cy="${cy}" r=".8" fill="#3d3d3d"/><circle cx="${cx+sp}" cy="${cy}" r=".8" fill="#3d3d3d"/><ellipse cx="${cx-sp-1.5}" cy="${cy+1.6}" rx="1" ry=".6" fill="#ffa8a8"/><ellipse cx="${cx+sp+1.5}" cy="${cy+1.6}" rx="1" ry=".6" fill="#ffa8a8"/><path d="M${cx-1} ${cy+1.8} q1 .9 2 0" stroke="#3d3d3d" stroke-width=".7" fill="none" stroke-linecap="round"/>`;
+const A_WORK = (bg, vest) => `<circle cx="12" cy="12" r="11.5" fill="${bg}"/><path d="M6.6 21.4 q5.4-4.6 10.8 0z" fill="${vest}"/><circle cx="12" cy="13.6" r="5.8" fill="#ffe3c7"/><path d="M5.8 12.2 a6.2 5.8 0 0 1 12.4 0z" fill="#ffd43b"/><rect x="4.9" y="11.3" width="14.2" height="1.8" rx=".9" fill="#f5b700"/>` + FACE(12, 14.8);
+const B_TILE = bg => `<rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="${bg}" stroke="#343a40" stroke-width="1.1"/>`;
+const B_WORK = (bg, body) => B_TILE(bg) + `<path d="M6.6 20.6 q5.4-5.8 10.8 0z" fill="${body}" stroke="#343a40" stroke-width="1"/><circle cx="12" cy="12.6" r="3.8" fill="#ffffff" stroke="#343a40" stroke-width="1"/><path d="M7.6 11.6 a4.4 4 0 0 1 8.8 0z" fill="#ffd43b" stroke="#343a40" stroke-width="1"/>`;
+Object.assign(GLYPHS, {
+  A_worker: { name:"동글 요원(파랑 조끼)", f:bg => A_WORK(bg, "#4dabf7") },
+  A_workerG:{ name:"동글 요원(초록 조끼)", f:bg => A_WORK(bg, "#51cf66") },
+  A_flag:   { name:"동글 신호수", f:bg => `<circle cx="12" cy="12" r="11.5" fill="${bg}"/><path d="M6.6 21.4 q5.4-4.6 10.8 0z" fill="#4dabf7"/><circle cx="11" cy="13.6" r="5.6" fill="#ffe3c7"/><path d="M5 12.2 a6 5.6 0 0 1 12 0z" fill="#ffd43b"/><rect x="4.1" y="11.3" width="13.8" height="1.8" rx=".9" fill="#f5b700"/>` + FACE(11, 14.8, 1.8) + `<path d="M18.6 3.2 v8.4" stroke="#3d3d3d" stroke-width=".9" stroke-linecap="round"/><path d="M18.6 3.2 h3.8 l-1 1.6 1 1.6 h-3.8z" fill="#ff6b6b"/>` },
+  A_sign:   { name:"동글 표지판", f:bg => `<path d="M12 2.6 Q13 2.6 13.6 3.7 L21.7 18.3 Q22.2 20 20.5 20.3 H3.5 Q1.8 20 2.3 18.3 L10.4 3.7 Q11 2.6 12 2.6z" fill="${bg}" stroke="${darken(bg, .4)}" stroke-width="1.3" stroke-linejoin="round"/><circle cx="10" cy="13" r=".9" fill="#3d3d3d"/><circle cx="14" cy="13" r=".9" fill="#3d3d3d"/><ellipse cx="8.3" cy="15" rx="1" ry=".6" fill="#ffa8a8"/><ellipse cx="15.7" cy="15" rx="1" ry=".6" fill="#ffa8a8"/><circle cx="12" cy="16" r=".8" fill="#3d3d3d"/>` },
+  A_cam:    { name:"동글 CCTV", f:bg => `<circle cx="12" cy="12" r="11.5" fill="${bg}"/><path d="M16.6 10.8 l3.6-1.8 v6 l-3.6-1.8z" fill="#ffa94d"/><rect x="3.6" y="7.6" width="13.4" height="8.8" rx="4.2" fill="#ffffff" stroke="#3d3d3d" stroke-width=".8"/><circle cx="8.6" cy="12" r="2.8" fill="#3d3d3d"/><circle cx="9.5" cy="11.1" r=".9" fill="#ffffff"/><ellipse cx="13.6" cy="13.8" rx="1" ry=".6" fill="#ffa8a8"/><path d="M12.8 11.6 q.8 .7 1.6 0" stroke="#3d3d3d" stroke-width=".7" fill="none" stroke-linecap="round"/><rect x="11" y="16.4" width="1.6" height="3.8" fill="#868e96"/>` },
+  A_mirror: { name:"동글 반사경", f:bg => `<circle cx="12" cy="12" r="11.5" fill="${bg}"/><rect x="11.3" y="14.6" width="1.4" height="6.6" rx=".7" fill="#868e96"/><circle cx="12" cy="9.6" r="5.8" fill="#e7f5ff" stroke="#7950f2" stroke-width="1.3"/>` + FACE(12, 9.2, 1.7) + `<path d="M15.4 5.6 l.5 1 1 .5-1 .5-.5 1-.5-1-1-.5 1-.5z" fill="#ffffff"/>` },
+  A_light:  { name:"동글 경고등", f:bg => `<circle cx="12" cy="12" r="11.5" fill="${bg}"/><path d="M5.6 7.6 l1.6 .8 M18.4 7.6 l-1.6 .8 M12 2.6 v1.8" stroke="#ff6b6b" stroke-width="1.2" stroke-linecap="round"/><path d="M7.4 16.4 V11.2 a4.6 4.6 0 0 1 9.2 0 V16.4z" fill="#ff922b"/><rect x="6.4" y="16.2" width="11.2" height="2.8" rx="1.2" fill="#868e96"/><circle cx="10.4" cy="12.6" r=".75" fill="#3d3d3d"/><circle cx="13.6" cy="12.6" r=".75" fill="#3d3d3d"/><path d="M11.2 14.2 q.8 .8 1.6 0" stroke="#3d3d3d" stroke-width=".7" fill="none" stroke-linecap="round"/><path d="M9 9.6 q1-1.6 2.4-1.8" stroke="#ffd8a8" stroke-width=".9" fill="none" stroke-linecap="round"/>` },
+  A_cone:   { name:"동글 라바콘", f:bg => `<circle cx="12" cy="12" r="11.5" fill="${bg}"/><path d="M12 3.4 L17.3 18.2 H6.7 Z" fill="#ff922b"/><path d="M9.5 10.4 h5 l.8 2.2 h-6.6z" fill="#ffffff"/><rect x="4.8" y="18" width="14.4" height="2.6" rx="1.3" fill="#e8590c"/><circle cx="10.9" cy="14.4" r=".65" fill="#3d3d3d"/><circle cx="13.1" cy="14.4" r=".65" fill="#3d3d3d"/><ellipse cx="9.7" cy="15.8" rx=".8" ry=".5" fill="#ffa8a8"/><ellipse cx="14.3" cy="15.8" rx=".8" ry=".5" fill="#ffa8a8"/>` },
+  A_chev:   { name:"동글 화살표", f:bg => `<circle cx="12" cy="12" r="11.5" fill="#ffffff" stroke="${bg}" stroke-width="1"/><path d="M3.4 16.6 L12 6.6 L20.6 16.6 L16.2 16.6 L12 11.8 L7.8 16.6 Z" fill="${bg}" stroke="${darken(bg, .4)}" stroke-width="1.5" stroke-linejoin="round"/>` },
+  B_worker: { name:"타일 요원(파랑)", f:bg => B_WORK(bg, "#4dabf7") },
+  B_workerG:{ name:"타일 요원(초록)", f:bg => B_WORK(bg, "#40c057") },
+  B_flag:   { name:"타일 신호수", f:bg => B_TILE(bg) + `<path d="M5.6 20.6 q5-5.8 10 0z" fill="#4dabf7" stroke="#343a40" stroke-width="1"/><circle cx="10.6" cy="12.6" r="3.6" fill="#ffffff" stroke="#343a40" stroke-width="1"/><path d="M6.4 11.6 a4.2 4 0 0 1 8.4 0z" fill="#ffd43b" stroke="#343a40" stroke-width="1"/><path d="M17.4 5 v9" stroke="#343a40" stroke-width="1" stroke-linecap="round"/><path d="M17.4 5 h3.6 l-.9 1.6 .9 1.6 h-3.6z" fill="#ff6b6b" stroke="#343a40" stroke-width=".8"/>` },
+  B_sign:   { name:"타일 표지판", f:bg => B_TILE(bg) + `<path d="M12 5 L19 17.6 H5 Z" fill="#ffffff" stroke="#f08c00" stroke-width="1.6" stroke-linejoin="round"/><rect x="11.2" y="9" width="1.6" height="4.6" rx=".8" fill="#343a40"/><circle cx="12" cy="15.4" r=".9" fill="#343a40"/>` },
+  B_cam:    { name:"타일 CCTV", f:bg => B_TILE(bg) + `<rect x="5" y="8.4" width="10.6" height="7" rx="2.2" fill="#ffffff" stroke="#343a40" stroke-width="1"/><path d="M15.6 10.4 l3.4-1.6 v5.6 l-3.4-1.6z" fill="#ff922b" stroke="#343a40" stroke-width=".9" stroke-linejoin="round"/><circle cx="9" cy="11.9" r="2" fill="#ff922b" stroke="#343a40" stroke-width=".9"/>` },
+  B_mirror: { name:"타일 반사경", f:bg => B_TILE(bg) + `<rect x="11.3" y="14" width="1.4" height="6" fill="#343a40"/><circle cx="12" cy="9.6" r="4.8" fill="#ffffff" stroke="#7048e8" stroke-width="1.5"/><path d="M10 8.4 q1.6-1.6 3.4-.6" stroke="#74c0fc" stroke-width="1" fill="none" stroke-linecap="round"/>` },
+  B_light:  { name:"타일 경고등", f:bg => B_TILE(bg) + `<path d="M8 16.4 V11.6 a4 4 0 0 1 8 0 V16.4z" fill="#ff6b6b" stroke="#343a40" stroke-width="1"/><rect x="6.8" y="16.4" width="10.4" height="2.6" rx="1" fill="#ffffff" stroke="#343a40" stroke-width="1"/><path d="M5.4 8 l1.6 .8 M18.6 8 l-1.6 .8 M12 4 v1.8" stroke="#343a40" stroke-width="1" stroke-linecap="round"/>` },
+  B_cone:   { name:"타일 라바콘", f:bg => B_TILE(bg) + `<path d="M12 4.6 L16.4 17.2 H7.6 Z" fill="#ff922b" stroke="#343a40" stroke-width="1" stroke-linejoin="round"/><path d="M10 10.4 h4 l.7 2 h-5.4z" fill="#ffffff"/><rect x="5.6" y="17.2" width="12.8" height="2.4" rx="1" fill="#ff922b" stroke="#343a40" stroke-width="1"/>` },
+  B_chev:   { name:"타일 화살표", f:bg => B_TILE(bg) + `<path d="M4.6 16 L12 7.4 L19.4 16 L15.6 16 L12 11.8 L8.4 16 Z" fill="#ffffff" stroke="${darken(bg, .45)}" stroke-width="1.5" stroke-linejoin="round"/>` }
+});
 const ICON_SETS = {
   report: { name:"평가서 스타일", map:{} },
-  cute:   { name:"귀여운 이모지", map:{ staff:["e_worker","#d0ebff"], staffS:["e_child","#d3f9d8"], flagman:["e_flag","#ffe3e3"], sign:["e_warn","#fff3bf"], cctv:["e_cam","#ffe8cc"],
-            mirror:["e_mirror","#e5dbff"], light:["e_siren","#ffe3e3"], cone:["e_barrier","#fff4e6"], crLuff:["e_crane","#fff3bf"], crTee:["e_crane","#ffec99"],
-            entMain:["chevron","#ffd8a8"], entSub:["chevron","#c3fae8"], gateArr:["chevron","#a5d8ff"] } }
+  cuteA:  { name:"귀여운 A (동글 캐릭터)", map:{ staff:["A_worker","#d6ecff"], staffS:["A_workerG","#dcf5e0"], flagman:["A_flag","#d6ecff"], sign:["A_sign","#ffe066"], cctv:["A_cam","#ffe8cc"],
+            mirror:["A_mirror","#efe6ff"], light:["A_light","#ffe3e3"], cone:["A_cone","#fff4e6"], entMain:["A_chev","#ffc078"], entSub:["A_chev","#8ce99a"], gateArr:["A_chev","#74c0fc"], pgPed:["A_chev","#faa2c1"], pgCar:["A_chev","#ced4da"] } },
+  cuteB:  { name:"귀여운 B (파스텔 타일)", map:{ staff:["B_worker","#d0ebff"], staffS:["B_workerG","#d3f9d8"], flagman:["B_flag","#d0ebff"], sign:["B_sign","#fff3bf"], cctv:["B_cam","#ffe8cc"],
+            mirror:["B_mirror","#e5dbff"], light:["B_light","#ffe3e3"], cone:["B_cone","#fff4e6"], entMain:["B_chev","#ffd8a8"], entSub:["B_chev","#c3fae8"], gateArr:["B_chev","#d0ebff"], pgPed:["B_chev","#ffdeeb"], pgCar:["B_chev","#e9ecef"] } }
 };
 const SAFE_ICONS = {
   staff:   { name:"안전요원(상시)",          def:{ glyph:"worker",  bg:"#1c5fb8" } },
@@ -788,7 +811,7 @@ const SAFE_ICONS = {
 };
 let iconSt = ls("eduMap.icons") || {};
 const saveIcons = () => ls("eduMap.icons", iconSt);
-function icoStyle(k){ return { size:24, ...SAFE_ICONS[k].def, ...(iconSt[k] || {}) }; }
+function icoStyle(k){ const s = { size:24, ...SAFE_ICONS[k].def, ...(iconSt[k] || {}) }; if (!GLYPHS[s.glyph]) s.glyph = SAFE_ICONS[k].def.glyph; return s; }
 Object.keys(SAFE_ICONS).forEach(k => Object.defineProperty(SAFE_ICONS[k], "svg", { get(){ const s = icoStyle(k); return (GLYPHS[s.glyph] || GLYPHS.dot).f(s.bg, s); } }));
 function applyIconSet(name){ const m = ICON_SETS[name].map; iconSt = {}; Object.entries(m).forEach(([k, [g, bg]]) => iconSt[k] = { glyph:g, bg }); saveIcons(); }
 const iconSVG = (t, size) => `<svg width="${size || icoStyle(t).size}" height="${size || icoStyle(t).size}" viewBox="0 0 24 24" aria-hidden="true">${SAFE_ICONS[t].svg}</svg>`;
@@ -848,7 +871,7 @@ const SAFE_ROWS = [
   ["라바콘", c => c.cone ? `${c.cone}개` : "-", c => c.where("cone")],
   ["가설방음판넬", c => c.panelLen ? `약 ${fmt(c.panelLen)}m` : "-", () => "공사장 경계"],
   ["철제 지붕형 보행통로", c => c.roofLen ? `약 ${fmt(c.roofLen)}m` : "-", () => "사업구역과 면한 보도"],
-  ["타워크레인", c => c.crane ? `${c.crane}기 (${[c.craneLuff && `러핑형 ${c.craneLuff}`, c.craneTee && `T형 ${c.craneTee}`].filter(Boolean).join(", ")})` : "-", c => c.cranes.map(x => `${x.name} R=${x.r}m`).join(", ")]
+  ["타워크레인", c => c.crane ? `${c.crane}기 (${[c.craneLuff && `러핑형 ${c.craneLuff}`, c.craneTee && `T형 ${c.craneTee}`].filter(Boolean).join(", ")})` : "-", c => c.cranes.map(x => { const o = craneSplit(x).over; return `${x.name} R=${x.r}m${o ? ` (사업지 밖 최대 ${fmt(o)}m)` : ""}`; }).join(", ")]
 ];
 function safeTable(){
   const used = phasesUsed();
@@ -867,7 +890,8 @@ function sentenceOf(c){
   let out = a.length ? `공사 중 ${a.join(" ")} 학생 통학안전을 확보하겠음` : "";
   if (c.crane){
     const hit = c.cranes.some(x => craneCheck(x).some(y => y.hit));
-    out += (out ? " / " : "") + `타워크레인 ${c.crane}기(${[c.craneLuff && `러핑형 ${c.craneLuff}기`, c.craneTee && `T형 ${c.craneTee}기`].filter(Boolean).join(", ")})를 운영하며, ${hit ? "작업반경이 대상학교 교지에 일부 걸려 학교 상부로 회전하지 않도록 회전 제한 장치를 설치·운영하겠음" : "작업반경이 대상학교 교지를 침범하지 않는 것으로 검토됨"}`;
+    const overMax = Math.max(0, ...c.cranes.map(x => craneSplit(x).over));
+    out += (out ? " / " : "") + `${overMax ? `타워크레인 작업반경이 사업지 밖으로 최대 약 ${fmt(overMax)}m 벗어나 회전 범위를 제한하겠으며, ` : ""}타워크레인 ${c.crane}기(${[c.craneLuff && `러핑형 ${c.craneLuff}기`, c.craneTee && `T형 ${c.craneTee}기`].filter(Boolean).join(", ")})를 운영하며, ${hit ? "작업반경이 대상학교 교지에 일부 걸려 학교 상부로 회전하지 않도록 회전 제한 장치를 설치·운영하겠음" : "작업반경이 대상학교 교지를 침범하지 않는 것으로 검토됨"}`;
   }
   return out;
 }
@@ -875,6 +899,18 @@ function safeSentence(){
   const used = phasesUsed();
   if (!used.length){ const t = sentenceOf(safeCounts()); return t ? "· " + t : ""; }
   return used.map(p => { const t = sentenceOf(safeCounts(p.id)); return t ? `· (${p.name}) ${t}` : ""; }).filter(Boolean).join("\n");
+}
+// 작업반경 원을 사업지 안/밖으로 나누기
+function craneSplit(c){
+  const circ = turf.circle(c.pt, c.r, { units:"meters", steps:96 });
+  if (!state.project.length) return { in: circ.geometry, out: null, over: 0 };
+  let site = state.project.length > 1 ? turf.union(turf.featureCollection(state.project.map(p => turf.feature(p.geom)))) : turf.feature(state.project[0].geom);
+  let inn = null, out = null;
+  try { inn = turf.intersect(turf.featureCollection([circ, site])); } catch(e){}
+  try { out = turf.difference(turf.featureCollection([circ, site])); } catch(e){}
+  let over = 0;
+  if (out){ const pg = state.project.map(p => p.geom); circ.geometry.coordinates[0].forEach(v => { const d = pointDist(v, pg); if (d > over) over = d; }); }
+  return { in: inn ? inn.geometry : null, out: out ? out.geometry : null, over };
 }
 function craneCheck(c){
   const circ = turf.circle(c.pt, c.r, { units:"meters", steps:96 }).geometry;
@@ -927,6 +963,7 @@ function safetyPanel(){
         <select class="inp sm" style="width:auto" data-crkind="${c.id}" aria-label="종류">${Object.entries(CRANES).map(([k,n]) => `<option value="${k}" ${c.kind===k?"selected":""}>${n.replace("타워크레인","")}</option>`).join("")}</select>
         <span class="muted">반경</span><input class="inp sm" style="width:60px" type="number" min="5" step="1" data-crr="${c.id}" value="${c.r}" aria-label="작업반경(m)"><span class="muted">m</span>${phSelect(c)}
         <button class="x" data-delcr="${c.id}" aria-label="지우기">✕</button></div>
+      ${(() => { const sp = craneSplit(c); return state.project.length ? `<div style="margin-top:6px;font-size:12.5px">${sp.out ? `<span class="badge bad">사업지 밖으로 최대 약 ${fmt(sp.over)}m</span>` : `<span class="badge out">작업반경이 사업지 안</span>`}</div>` : ""; })()}
       ${ck.length ? `<div style="margin-top:6px;font-size:12.5px;line-height:1.6">${ck.map(x => x.hit ? `<span class="badge bad">${esc(sName(x.s))} 교지 침범</span>` : `<span class="badge out">${esc(sName(x.s))} 침범 없음</span> <span class="muted">(여유 약 ${fmt(x.gap)}m)</span>`).join("<br>")}</div>` : ""}
     </div>`; }).join("")}
     <div class="muted">기호·박스·크레인은 지도에서 끌어 옮길 수 있어요.</div>
@@ -1183,7 +1220,9 @@ function buildScene(disp){
     S.pts.filter(V).forEach(p => { icons.push(p); leg.add("sp_" + p.type); if (p.icons){ posts.push(p); POST_ICONS.forEach(k => p.icons[k] && leg.add("sp_" + k)); } });
     S.posts.filter(V).forEach(p => { posts.push(p); POST_ICONS.forEach(k => p.icons[k] && leg.add("sp_" + k)); });
     S.cranes.filter(V).forEach(c => {
-      poly(turf.circle(c.pt, c.r, { units:"meters", steps:96 }).geometry, "craneR");
+      const sp = craneSplit(c);
+      if (sp.in) poly(sp.in, "craneR");
+      if (sp.out){ poly(sp.out, "craneOut"); }
       icons.push({ id:c.id, type:crIcon(c.kind), pt:c.pt, rot:0, ref:c }); leg.add("sp_" + crIcon(c.kind));
       labels.push({ k:"label", pt:c.pt, text:`${c.name} (R=${c.r}m)`, color:"#e8590c", dy:24 });
     });
@@ -1191,7 +1230,7 @@ function buildScene(disp){
   return { items, labels, leg, icons, posts };
 }
 const LEG_ORDER = () => ["proj","site","abs","rel","r300", ...Object.keys(FAC_TYPES).map(k => "fac_"+k), "walk","bike","route","dim",
-  "sp_crLuff","sp_crTee","craneR","sp_entMain","sp_entSub","sp_gateArr","sp_zebra","inRoute","outRoute","panel","roof","wait","stock","sp_pgPed","sp_pgCar","sp_staff","sp_staffS","sp_flagman","sp_sign","sp_cctv","sp_mirror","sp_light","sp_cone"];
+  "sp_crLuff","sp_crTee","craneR","craneOut","sp_entMain","sp_entSub","sp_gateArr","sp_zebra","inRoute","outRoute","panel","roof","wait","stock","sp_pgPed","sp_pgCar","sp_staff","sp_staffS","sp_flagman","sp_sign","sp_cctv","sp_mirror","sp_light","sp_cone"];
 function legendItems(leg){ return LEG_ORDER().filter(k => leg.has(k)).map(k => [k.startsWith("sp_") ? SAFE_ICONS[k.slice(3)].name : STYLE_NAMES[k], k]); }
 let lastScene = null, rOver = null, rNear = null, safeLayer = null;
 function redraw(){
