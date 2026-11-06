@@ -122,7 +122,7 @@ th{background:var(--soft);font-weight:600}
   <div id="panel">
     <div class="head">
       <h1>교육환경 위치도</h1>
-      <div class="row"><button class="btn sm" id="setBtn">글씨</button><button class="btn sm" id="resetBtn">새로 시작</button></div>
+      <div class="row"><button class="btn sm" id="setBtn">글씨체·크기</button><button class="btn sm" id="resetBtn">새로 시작</button></div>
     </div>
     <div class="card" id="setCard" style="display:none">
       <div class="row"><b style="width:56px">글씨체</b><select id="fontSel" style="flex:1"></select></div>
@@ -173,7 +173,7 @@ th{background:var(--soft);font-weight:600}
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "2.2";
+const APP_VERSION = "2.3";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const STORE = "eduMap.v1";
@@ -204,6 +204,7 @@ let state = { project: [], schools: [], facs: [], routes: [] };
 try { const s = JSON.parse(localStorage.getItem(STORE)); if (s && s.project) state = { ...state, ...s }; } catch(e){}
 state.facs = state.facs || []; state.routes = state.routes || [];
 state.schools.forEach(s => { if (s.short === undefined) s.short = ""; });
+const showOf = s => (s.show = s.show || { site:true, abs:true, rel:true });
 function save(){ try { localStorage.setItem(STORE, JSON.stringify(state)); } catch(e){} }
 
 /* ===== 브이월드 (JSONP) ===== */
@@ -370,6 +371,8 @@ const LAYERS = [
   { g:"도시계획시설", id:"up156",  name:"방재시설",                   layers:"lt_c_upisuq156", min:13, color:"#4d96ff" },
   { g:"도시계획시설", id:"up157",  name:"보건위생시설",               layers:"lt_c_upisuq157", min:13, color:"#e76f51" },
   { g:"도시계획시설", id:"up158",  name:"환경기초시설",               layers:"lt_c_upisuq158", min:13, color:"#6a994e" },
+  { g:"도로·교통",   id:"bike",   name:"자전거길",                   layers:"lt_l_bycycle01", min:12, color:"#0ca678" },
+  { g:"도로·교통",   id:"sprd",   name:"도로명주소 도로 (도로 구간)", layers:"lt_l_sprd", min:15, color:"#868e96" },
   { g:"구역",        id:"up161",  name:"지구단위계획구역",           layers:"lt_c_upisuq161", min:12, color:"#e5989b" },
   { g:"구역",        id:"ud801",  name:"개발제한구역",               layers:"lt_c_ud801", min:10, color:"#55a630" },
   { g:"구역",        id:"um710",  name:"상수원보호구역",             layers:"lt_c_um710", min:10, color:"#0096c7" },
@@ -457,11 +460,17 @@ function renderLayerPanel(){
       <select id="nearR">${[100,200,300,500].map(r => `<option value="${r}" ${ly.nearR===r?"selected":""}>반경 ${r}m</option>`).join("")}</select>
       <button class="btn sm ${nearOn?"on":""}" id="nearBtn">${nearOn ? "지우기" : "그리기"}</button>
     </div>
+    ${state.schools.length ? `<h4>학교별 레이어</h4>` + state.schools.map(s => `<div style="margin:2px 0 6px"><b style="font-size:13px">${esc(sName(s))}</b>${showRow(s)}</div>`).join("") : ""}
     ${groups.map(g => `<h4>${g}</h4>` + LAYERS.filter(d => d.g === g).map(d =>
       `<label><input type="checkbox" data-ly="${d.id}" ${ly.on.includes(d.id)?"checked":""}><span class="lgsw" style="background:${d.color}"></span>${d.name}</label>`).join("")).join("")}
     <h4>주제도 투명도</h4>
     <input type="range" id="lyOp" min="0.15" max="1" step="0.05" value="${ly.op}" style="width:100%">
     <div class="muted" style="margin-top:6px">일부 레이어는 지역에 따라 자료가 없을 수 있어요.</div>`;
+}
+function showRow(s){
+  const sh = showOf(s);
+  return `<div class="row" style="gap:10px">${[["site","교지","#2f6fdf",1],["abs","절대보호구역","#f08c00",1],["rel","상대보호구역","#2f6fdf",.35]].map(([k,n,c,o]) =>
+    `<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" data-show="${s.id}" data-k="${k}" ${sh[k]?"checked":""}><span class="lgsw" style="background:${c};opacity:${o}"></span>${n}</label>`).join("")}</div>`;
 }
 function toggleLayerPanel(force){
   const p = $("#layerPanel"), show = force !== undefined ? force : p.style.display !== "block";
@@ -551,22 +560,32 @@ function bufferOf(gs, m){
     return bs.length > 1 ? turf.union(turf.featureCollection(bs)) : bs[0];
   } catch(e){ return null; }
 }
+// 절대보호구역: 학교출입문으로부터 직선거리 50m
+function absZone(s){ return s.gate ? turf.circle(s.gate, 50, { units:"meters", steps:72 }) : null; }
+// 상대보호구역: 학교경계로부터 직선거리 200m 중 절대보호구역 제외
+function relZone(s){
+  const gs = s.parcels.map(p => p.geom); if (!gs.length) return null;
+  let buf = bufferOf(gs, 200), abs = absZone(s);
+  if (buf && abs){ try { const d = turf.difference(turf.featureCollection([buf, abs])); if (d) buf = d; } catch(e){} }
+  return buf;
+}
 function redraw(){
   if (!map) return;
   drawLayer.clearLayers();
   // 학교
   state.schools.forEach(s => {
+    const sh = showOf(s);
     const gs = s.parcels.map(p => p.geom);
+    const abs = absZone(s);
     if (gs.length){
       if (r300On){ const b3 = bufferOf(gs, 300); if (b3) addGeo(b3.geometry, { color:"#6b7280", weight:1.5, dashArray:"2 6", fill:false }); }
-      const buf = bufferOf(gs, 200);
-      if (buf) addGeo(buf.geometry, { color:"#2f6fdf", weight:2, dashArray:"6 5", fillColor:"#2f6fdf", fillOpacity:0.07 });
-      gs.forEach(g => addGeo(g, { color:"#2f6fdf", weight:2, fillColor:"#2f6fdf", fillOpacity:0.28 }));
-      addLabel(centroidOf(gs), sName(s), "#2f6fdf");
+      if (sh.rel){ const rel = relZone(s); if (rel) addGeo(rel.geometry, { color:"#2f6fdf", weight:2, dashArray:"6 5", fillColor:"#2f6fdf", fillOpacity:0.08 }); }
+      if (sh.site) gs.forEach(g => addGeo(g, { color:"#2f6fdf", weight:2, fillColor:"#2f6fdf", fillOpacity:0.3 }));
+      if (sh.site || sh.rel) addLabel(centroidOf(gs), sName(s), "#2f6fdf");
     }
-    if (s.gate){
-      L.circle(ll(s.gate), { radius:50, interactive:false, color:"#f08c00", weight:2, fillColor:"#f08c00", fillOpacity:0.15 }).addTo(drawLayer);
-      L.circleMarker(ll(s.gate), { radius:7, interactive:false, color:"#fff", weight:2, fillColor:"#f08c00", fillOpacity:1 }).addTo(drawLayer);
+    if (abs && sh.abs){
+      addGeo(abs.geometry, { color:"#f08c00", weight:2, fillColor:"#f08c00", fillOpacity:0.18 });
+      L.circleMarker(ll(s.gate), { radius:6, interactive:false, color:"#fff", weight:2, fillColor:"#f08c00", fillOpacity:1 }).addTo(drawLayer);
     }
   });
   // 주변 시설
@@ -599,9 +618,9 @@ function renderLegend(){
   if (!legOn){ lg.style.display = "none"; return; }
   const items = [
     state.project.length && `<div><i style="background:rgba(229,72,77,.35);border:2px solid #e5484d"></i>사업지</div>`,
-    state.schools.some(s=>s.parcels.length) && `<div><i style="background:rgba(47,111,223,.35);border:2px solid #2f6fdf"></i>학교(교지)</div>`,
-    state.schools.some(s=>s.gate) && `<div><i style="background:rgba(240,140,0,.2);border:2px solid #f08c00;border-radius:50%"></i>절대보호구역(출입문 50m)</div>`,
-    state.schools.some(s=>s.parcels.length) && `<div><i style="background:rgba(47,111,223,.08);border:2px dashed #2f6fdf"></i>상대보호구역(교지 200m)</div>`,
+    state.schools.some(s=>s.parcels.length && showOf(s).site) && `<div><i style="background:rgba(47,111,223,.35);border:2px solid #2f6fdf"></i>학교(교지)</div>`,
+    state.schools.some(s=>s.gate && showOf(s).abs) && `<div><i style="background:rgba(240,140,0,.2);border:2px solid #f08c00;border-radius:50%"></i>절대보호구역(출입문 50m)</div>`,
+    state.schools.some(s=>s.parcels.length && showOf(s).rel) && `<div><i style="background:rgba(47,111,223,.08);border:2px dashed #2f6fdf"></i>상대보호구역(교지 200m, 절대 제외)</div>`,
     r300On && `<div><i style="border:2px dotted #6b7280"></i>교지경계 300m</div>`,
     ...Object.entries(FAC_TYPES).filter(([k]) => state.facs.some(f => f.type === k)).map(([k,t]) => `<div><i style="background:${t.color}"></i>${t.name}</div>`),
     state.routes.length && `<div><i style="background:#d6336c;height:4px;vertical-align:3px"></i>통학로</div>`
@@ -661,7 +680,7 @@ function toggle(list, p, label){
   else { list.push(p); toast(`${label}에 넣었어요`); }
   changed();
 }
-function changed(){ save(); redraw(); renderAll(); }
+function changed(){ save(); redraw(); renderAll(); if (map) renderLayerPanel(); }
 function updateModeText(){
   const m = mode; if (!m) return;
   const s = m.id && findS(m.id), f = m.id && findF(m.id), r = m.id && findR(m.id);
@@ -769,6 +788,7 @@ function renderAll(){
         <button class="btn sm ${on("school", s.id)}" data-sel="${s.id}">교지 선택 (${s.parcels.length})</button>
         <button class="btn sm ${on("gate", s.id)}" data-gate="${s.id}">교문 ${s.gate ? "다시 찍기" : "찍기"}</button>
       </div>
+      <div style="margin-top:8px">${showRow(s)}</div>
       ${s.parcels.map(p => parcelRow(p, "school", s.id)).join("")}
       ${s.parcels.length ? `<div class="muted" style="margin-top:4px">교지면적 약 ${fmt(areaOf(s.parcels.map(p=>p.geom)))}㎡ (도면)</div>` : ""}
     </div>`).join("");
@@ -927,6 +947,7 @@ document.addEventListener("click", e => {
 });
 document.addEventListener("change", e => {
   const t = e.target, d = t.dataset;
+  if (d.show){ const s = findS(d.show); if (s){ showOf(s)[d.k] = t.checked; save(); redraw(); renderAll(); if (map) renderLayerPanel(); } return; }
   if (d.sname){ const s = findS(d.sname); if (s){ s.name = t.value.trim() || s.name; changed(); } }
   if (d.sshort){ const s = findS(d.sshort); if (s){ s.short = t.value.trim(); changed(); } }
   if (d.kind){ const s = findS(d.kind); if (s){ s.kind = t.value; changed(); } }
