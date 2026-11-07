@@ -131,6 +131,7 @@ td[contenteditable]:focus{box-shadow:inset 0 0 0 2px var(--blue)}
 .chip{height:32px;padding:0 12px;border-radius:16px;border:1px solid #d6dae0;background:#fff;font-size:13px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.05);color:var(--ink)}
 .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 #frame.print ~ .top, #mapWrap.printing .top{display:none}
+body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, body.bgshot #map .leaflet-near-pane, body.bgshot #map .leaflet-tooltip-pane, body.bgshot #map .leaflet-popup-pane, body.bgshot #map .leaflet-control-container, body.bgshot #pTitle, body.bgshot #pNorth, body.bgshot #pLegend, body.bgshot #toast, body.bgshot #mapMsg{visibility:hidden !important}
 #modeBar{position:absolute;left:12px;bottom:14px;z-index:1000;display:none;align-items:center;gap:8px;max-width:calc(100% - 24px);
   background:var(--ink);color:#fff;border-radius:12px;padding:9px 12px;box-shadow:0 2px 10px rgba(0,0,0,.2)}
 #modeBar span{font-size:14px;line-height:1.35}
@@ -221,7 +222,7 @@ td[contenteditable]:focus{box-shadow:inset 0 0 0 2px var(--blue)}
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "3.8";
+const APP_VERSION = "3.9";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const KINDS = ["유치원","초등학교","중학교","고등학교","특수학교","기타"];
@@ -606,6 +607,7 @@ function setBase(){
   if (ly.base === "none") return;
   baseLayer = ly.base === "sat" ? L.tileLayer(WMTS("Satellite","jpeg"), o) : ly.base === "gray" ? L.tileLayer(WMTS("gray","png"), o) : L.tileLayer(WMTS("Base","png"), o);
   baseLayer.on("tileerror", onTileErr).on("tileload", onTileOk).addTo(map).bringToBack();
+  baseLayer.once("load", () => { if (tileCORS === null) testTileCORS(); });
   if (ly.base === "sat") labelLayer = L.tileLayer(WMTS("Hybrid","png"), o).addTo(map);
 }
 function applyLayers(){
@@ -1841,7 +1843,9 @@ function checkItems(){
             <input class="inp sm" type="number" step="0.5" data-road="${r.s.id}" data-dir="${k}" data-f="w" value="${v.w ?? ""}" aria-label="${n} 도로폭">
             <input class="inp sm" type="number" step="0.05" data-road="${r.s.id}" data-dir="${k}" data-f="sw" value="${v.sw ?? ""}" aria-label="${n} 보도폭">
             <input class="inp sm" type="number" step="1" data-road="${r.s.id}" data-dir="${k}" data-f="ln" value="${v.ln ?? ""}" aria-label="${n} 차로수">`; }).join("")}</div></div>`; }).join("")
-        + `<div class="muted">레이어 패널의 ‘도로’, ‘도로명주소 도로’를 켜면 참고하기 좋아요.</div>` },
+        + `<div class="row"><button class="btn sm" data-roadauto="1" ${roadBusy ? "disabled" : ""}>${roadBusy ? "찾는 중…" : "브이월드에서 도로 기능·폭 자동 찾기"}</button></div>`
+        + S.map(r => { const rd = state.manual.roads[r.s.id] || {}, a = DIR4.filter(([k]) => rd[k] && rd[k].auto); return a.length ? `<div class="muted" style="line-height:1.7"><b>${esc(sName(r.s))}</b> ${a.map(([k,n]) => { const x = rd[k].auto; return `<br>${n}: ${esc([x.nm, x.grade && (x.grade + (x.range ? `(${x.range})` : "")), x.fn && `${x.fn}${x.est ? " (규모로 추정 · 확인 필요)" : " (도시계획 기능)"}`, x.w && `폭 ${x.w}m`].filter(Boolean).join(" · ") || "찾지 못함")}`; }).join("")}</div>` : ""; }).join("")
+        + `<div class="muted">자동 찾기는 학교 주변 40m 안의 도시계획도로(브이월드)와 도로명주소 도로를 봐요. 도로 기능이 자료에 없으면 도로 규모(광로·대로·중로·소로)로 추정해서 넣으니, 도시계획 결정조서와 꼭 맞춰 보세요. 레이어 패널의 ‘도로’를 켜면 확인하기 좋아요.</div>` },
     { id:"sw", sec:"4.1.3.4", name:"보도 · 자전거도로 연계, 유효 보도폭", how:"보도 손으로 그리기 · 자전거길 자동", ok: state.walks.some(w => w.width) && all(r => state.manual.link[r.s.id]), val: state.walks.some(w => w.width >= 2) ? "2m 이상" : state.walks.length ? "확인 필요" : "-",
       body: () => perSchool(S, r => `<label class="lab" style="margin:0 0 4px">보행자도로 연계</label><select class="inp sm" data-link="${r.s.id}" aria-label="연계 여부"><option value="">선택</option>${["미연계","일부 연계","연계"].map(v => `<option ${state.manual.link[r.s.id]===v?"selected":""}>${v}</option>`).join("")}</select>`)
         + state.walks.map(walkCard).join("") + `<div class="row"><button class="btn sm dashed" data-act="addWalk">+ 보도 그리기</button><button class="btn sm" data-vec="bike">자전거길 자동 그리기</button></div>` },
@@ -1886,10 +1890,11 @@ function panel4(){
   <button class="btn sm" data-act="openStyle">색 · 선 · 해치 바꾸기</button>
   <div><label class="lab" for="ptitle">제목</label><input class="inp" id="ptitle" data-ptitle value="${esc(pr.title)}"></div>
   <div><div class="lab">용지</div><div class="seg">${[["land","A4 가로"],["port","A4 세로"]].map(([k,n]) => `<button class="${pr.paper===k?"on":""}" data-paper="${k}">${n}</button>`).join("")}</div></div>
-  <div class="muted">지도를 끌고 확대해서 틀 안에 맞춘 뒤 저장하세요. 그림 저장은 선·글씨만 담아요 (바탕지도 사진은 빠져요). 바탕지도까지 필요하면 화면 캡처(Win+Shift+S)를 쓰세요.</div>
+  <label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" data-withbase ${ly.withBase !== false ? "checked" : ""}>바탕지도(지도·위성·켠 레이어)도 같이 저장</label>
+  <div class="muted">지도를 끌고 확대해서 틀 안에 맞춘 뒤 저장하세요.${ly.withBase !== false && tileCORS !== true ? " 저장할 때 ‘이 탭 공유’ 창이 뜨면 이 탭을 고르고 [공유]를 눌러 주세요. 바탕지도만 찍고 바로 멈춰요." : ""} PPT는 바탕지도를 그림으로, 선·글씨·기호는 하나씩 고칠 수 있는 도형으로 넣어요.</div>
   <div class="grid2 next"><button class="btn" data-act="fit">전체 맞추기</button><button class="btn" data-export="svg">SVG 저장</button></div>
   <button class="btn pri full" data-export="png" style="height:46px;font-size:15px">그림(PNG)으로 저장</button>
-  <button class="btn full" data-act="exportPPT" style="height:42px">PPT로 내보내기 (평가항목별 그림 + 표 + 문장)</button>`;
+  <button class="btn full" data-act="exportPPT" style="height:42px">PPT로 내보내기 (평가항목별 그림, 도형 편집 가능)</button>`;
 }
 
 /* 5단계 */
@@ -1906,7 +1911,7 @@ function panel5(){
   <div class="tabs">${[["loc","1.2 위치항목 조사결과"],["target","3.1 평가대상"],["items","평가항목별"],["text","평가 문장"]].map(([k,n]) => `<button class="tab ${resTab===k?"on":""}" data-rtab="${k}">${n}</button>`).join("")}</div>
   ${body}
   ${rows.length ? `<div class="grid2"><button class="btn pri" data-act="copyRes">${resTab === "text" || resTab === "items" ? "문장 복사" : "표 복사 (한글·엑셀)"}</button><button class="btn" data-act="copyAllText">평가 문장 복사</button></div>
-  <button class="btn full" data-act="exportPPT" style="height:42px">PPT로 내보내기 (평가항목별 그림 + 표 + 문장)</button>
+  <button class="btn full" data-act="exportPPT" style="height:42px">PPT로 내보내기 (평가항목별 그림, 도형 편집 가능)</button>
   <div class="muted">${resTab === "loc" ? "노란 칸(사업 후)은 눌러서 고칠 수 있어요. 표는 패널이 좁으면 옆으로 밀어 보세요. 복사해서 한글에 붙이면 표로 들어가요." : "복사해서 한글·엑셀에 붙여 넣으세요."}</div>` : ""}`;
 }
 const D1 = v => v === null || v === undefined ? "-" : v === 0 ? "연접" : `약 ${m1(v)}m`;
@@ -1993,6 +1998,59 @@ function sentences(rows){
   if (hz.length){ out.push("", "[보호구역 내 위험시설]"); hz.forEach(r => out.push(r.haz.length ? `· (${sName(r.s)}) 교지경계 300m 이내에 '${r.haz.map(h=>h.f.name).join("', '")}'이(가) 위치하여 '미부합'으로 평가함` : `· (${sName(r.s)}) 교지경계 300m 이내에 위험시설 또는 유해시설이 없어 '부합'으로 평가함`)); }
   return out.join("\n");
 }
+/* ===== 도로 기능 자동 찾기 ===== */
+let roadBusy = false;
+const ROAD_GRADE = { 광로:["70m 이상", "50~70m", "40~50m"], 대로:["35~40m", "30~35m", "25~30m"], 중로:["20~25m", "15~20m", "12~15m"], 소로:["10~12m", "8~10m", "8m 미만"] };
+function roadInfo(props){
+  const all = Object.values(props || {}).filter(v => typeof v === "string" || typeof v === "number").map(String).join(" ");
+  const fm = all.match(/(주간선|보조간선|집산|국지)/), gm = all.match(/(광로|대로|중로|소로)\s*([123])\s*류/) || all.match(/(광로|대로|중로|소로)\s*([123])/);
+  const grade = gm ? `${gm[1]}${gm[2]}류` : null, range = gm ? ROAD_GRADE[gm[1]][+gm[2] - 1] : null;
+  const est = gm ? ({ 광로:"주간선", 대로: gm[2] === "3" ? "보조간선" : "주간선", 중로: gm[2] === "1" ? "보조간선" : "집산", 소로:"국지" })[gm[1]] : null;
+  return { fn: fm ? fm[1] : est, est: !fm && !!est, grade, range };
+}
+function dir4(from, to){ const dx = (to[0] - from[0]) * Math.cos(from[1] * Math.PI / 180), dy = to[1] - from[1]; return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "E" : "W") : (dy > 0 ? "N" : "S"); }
+async function autoRoads(){
+  const S = state.schools.filter(s => hasShape(schoolShape(s))); if (!S.length) return;
+  roadBusy = true; renderPanel(); let found = 0;
+  try {
+    for (const s of S){
+      const sh = schoolShape(s), cen = shapeCenter(sh);
+      const base = sh.polys.length ? turf.featureCollection(sh.polys.map(g => turf.feature(g))) : turf.featureCollection([turf.circle(sh.pt, 15, { units:"meters" })]);
+      const buf = turf.buffer(base, 40, { units:"meters" }), bb = turf.bbox(buf);
+      const [ups, sps] = await Promise.all([vwData("LT_C_UPISUQ151", { geomFilter:`BOX(${bb.join(",")})`, size:100 }).catch(() => []), vwData("LT_L_SPRD", { geomFilter:`BOX(${bb.join(",")})`, size:100 }).catch(() => [])]);
+      const best = {};
+      ups.forEach(ft => {
+        const g = ft.geometry; if (!g || !/Polygon/.test(g.type)) return;
+        const d = shapeDist(sh, { polys:[g], pt:null }); if (d === null || d > 40) return;
+        let c = null; try { const x = turf.intersect(turf.featureCollection([turf.feature(g), turf.bboxPolygon(bb)])); if (x) c = turf.centroid(x).geometry.coordinates; } catch(e){}
+        if (!c) c = turf.centroid(turf.feature(g)).geometry.coordinates;
+        const k = dir4(cen, c);
+        if (!best[k] || d < best[k].d) best[k] = { d, c, info:roadInfo(ft.properties) };
+      });
+      // 도로명주소 도로: 이름과 폭
+      const lineNear = (c) => { let b = null; sps.forEach(ft => { const g = ft.geometry; if (!g) return; const ls = g.type === "MultiLineString" ? g.coordinates : g.type === "LineString" ? [g.coordinates] : []; ls.forEach(l => { if (l.length < 2) return; const d = turf.pointToLineDistance(turf.point(c), turf.lineString(l), { units:"meters" }); if (d <= 30 && (!b || d < b.d)) b = { d, p:ft.properties || {} }; }); }); return b; };
+      if (!ups.length) sps.forEach(ft => { const g = ft.geometry; if (!g) return; const l = g.type === "MultiLineString" ? g.coordinates[0] : g.coordinates; if (!l || l.length < 2) return;
+        const np = turf.nearestPointOnLine(turf.lineString(l), turf.point(cen)).geometry.coordinates, d = shapeDist(sh, { polys:[], pt:np }); if (d === null || d > 40) return;
+        const k = dir4(cen, np); if (!best[k] || d < best[k].d) best[k] = { d, c:np, info:{ fn:null, est:false, grade:null, range:null } }; });
+      const R = state.manual.roads; R[s.id] = R[s.id] || {};
+      DIR4.forEach(([k]) => {
+        const v = R[s.id][k] = R[s.id][k] || {};
+        const b = best[k]; if (!b){ if (v.auto) delete v.auto; return; }
+        const ln = lineNear(b.c), p = ln ? ln.p : {};
+        const nm = p.rn || p.road_nm || p.rd_nm || "", wv = parseFloat(p.road_bt || p.rd_bt || p.road_wd || "");
+        const w = isFinite(wv) && wv > 0 ? wv : null;
+        v.auto = { ...b.info, nm, w };
+        if (b.info.fn) v.fn = b.info.fn;
+        if (w) v.w = w;
+        found++;
+      });
+    }
+    save();
+    toast(found ? `도로 ${found}곳을 찾았어요. 추정 표시가 있으면 결정조서와 맞춰 보세요` : "학교 주변 40m 안에서 도로를 찾지 못했어요", 4000);
+  } catch(e){ toast("도로를 불러오지 못했어요: " + e.message); }
+  roadBusy = false; renderPanel(); redraw();
+}
+
 /* ===== 평가항목별 정리 ===== */
 function sentBlocks(rows){
   const out = {}; let cur = null;
@@ -2069,89 +2127,129 @@ function loadPptx(){
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let pptBusy = false;
+const toHex = c => { c = String(c || "#000000").trim(); const m = c.match(/^rgba?\((\d+)\D+(\d+)\D+(\d+)/); if (m) return [m[1], m[2], m[3]].map(v => (+v).toString(16).padStart(2, "0")).join("").toUpperCase(); c = c.replace("#", ""); if (c.length === 3) c = c.split("").map(x => x + x).join(""); return c.slice(0, 6).toUpperCase(); };
+// 지금 지도에 그려진 것을 PPT 도형으로 (선·면·글씨·기호를 따로따로 고칠 수 있게)
+async function pptShapes(pptx, sl, box){
+  const sc = lastScene, sz = map.getSize(), W = sz.x, H = sz.y, f = box.w / W, PT = 72, FONT = "맑은 고딕";
+  const lfs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--lblfs")) || 12;
+  const P = c => map.latLngToContainerPoint([c[1], c[0]]);
+  const X = px => box.x + px * f, Y = py => box.y + py * f, pt = px => Math.max(0.25, Math.round(px * f * PT * 100) / 100);
+  const b = map.getBounds(), pd = (b.getEast() - b.getWest()) * 0.01, bbox = [b.getWest() - pd, b.getSouth() - pd, b.getEast() + pd, b.getNorth() + pd];
+  const clip = g => { try { return turf.bboxClip(turf.feature(g), bbox).geometry; } catch(e){ return g; } };
+  const dashT = d => ({ dash:"dash", dot:"sysDot", dashdot:"dashDot", long:"lgDash" })[d] || "solid";
+  const lineOf = s => ({ color:toHex(s.stroke), width:pt(s.weight), transparency:Math.round((1 - (s.lineOp ?? 1)) * 100), dashType:dashT(s.dash) });
+  const path = (rings, opt, closed) => {
+    const ps = rings.map(r => r.map(P)), all = ps.flat(); if (all.length < 2) return;
+    const xs = all.map(p => p.x), ys = all.map(p => p.y), x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs), y1 = Math.max(...ys);
+    const points = [];
+    ps.forEach(r => { r.forEach((p, i) => points.push(i ? { x:(p.x - x0) * f, y:(p.y - y0) * f } : { x:(p.x - x0) * f, y:(p.y - y0) * f, moveTo:true })); if (closed) points.push({ close:true }); });
+    sl.addShape(pptx.ShapeType.custGeom, { x:X(x0), y:Y(y0), w:Math.max((x1 - x0) * f, 0.001), h:Math.max((y1 - y0) * f, 0.001), points, ...opt });
+  };
+  const inView = (x, y, m = 30) => x > -m && x < W + m && y > -m && y < H + m;
+  const label = (text, cx, cy, fill, color, border, fs) => { const w = textW(text, fs) + 16, h = fs + 10;
+    sl.addText(text, { shape:pptx.ShapeType.roundRect, rectRadius:h * f / 2, x:X(cx - w/2), y:Y(cy - h/2), w:w * f, h:h * f, fill:{ color:fill }, ...(border ? { line:{ color:border, width:0.75 } } : {}), fontFace:FONT, fontSize:Math.round(fs * f * PT * 10) / 10, bold:true, color, align:"center", valign:"middle", margin:0 }); };
+  const icoCache = {};
+  const icoPng = async t => icoCache[t] || (icoCache[t] = (await svgToPng(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">${SAFE_ICONS[t].svg}</svg>`, 24, 24, 6)).replace(/^data:/, ""));
+  const icon = async (t, cx, cy, z, rot) => sl.addImage({ data:await icoPng(t), x:X(cx - z/2), y:Y(cy - z/2), w:z * f, h:z * f, ...(rot ? { rotate:rot } : {}) });
+  // 선 · 면 · 점
+  sc.items.forEach(it => {
+    if (it.k === "poly"){
+      const s = styles[it.sk]; if (!s) return;
+      const rings = polysOf(clip(it.geom)).flat().filter(r => r.length > 2); if (!rings.length) return;
+      const fo = hatchOn(s) ? Math.max(s.fillOp, 0.25) : s.fillOp;
+      path(rings, { line:lineOf(s), ...(!isLineKey(it.sk) && fo > 0 ? { fill:{ color:toHex(s.fill), transparency:Math.round((1 - fo) * 100) } } : {}) }, true);
+    } else if (it.k === "line"){
+      const s = styles[it.sk]; if (!s || it.coords.length < 2) return;
+      const g = clip({ type:"LineString", coordinates:it.coords });
+      (g.type === "MultiLineString" ? g.coordinates : g.type === "LineString" ? [g.coordinates] : []).filter(l => l.length > 1).forEach(l => path([l], { line:lineOf(s) }, false));
+    } else if (it.k === "dot"){
+      const p = P(it.pt); if (!inView(p.x, p.y)) return;
+      sl.addShape(pptx.ShapeType.ellipse, { x:X(p.x - it.r), y:Y(p.y - it.r), w:2 * it.r * f, h:2 * it.r * f, fill:{ color:toHex(it.color) }, line:{ color:"FFFFFF", width:pt(2) } });
+    }
+  });
+  // 글씨
+  const showN = map.getZoom() >= 17;
+  sc.labels.forEach(lb => {
+    const p = P(lb.pt), y = p.y + (lb.dy || 0); if (!inView(p.x, y)) return;
+    if (lb.k === "nlabel"){ if (!showN) return; const fs = lfs - 2, w = textW(lb.text, fs) + 6, h = fs + 4;
+      sl.addText(lb.text, { x:X(p.x - w/2), y:Y(y - h/2), w:w * f, h:h * f, fontFace:FONT, fontSize:Math.round(fs * f * PT * 10) / 10, color:"222222", align:"center", valign:"middle", margin:0 }); return; }
+    lb.k === "dim" ? label(lb.text, p.x, y, "FFFFFF", toHex(styles.dim.stroke), toHex(styles.dim.stroke), lfs) : label(lb.text, p.x, y, toHex(lb.color), "FFFFFF", null, lfs);
+  });
+  // 기호
+  for (const p of (sc.icons || [])){ const q = P(p.pt); if (!inView(q.x, q.y)) continue; await icon(p.type, q.x, q.y, icoStyle(p.type).size, p.rot || 0); }
+  // 요원 박스
+  for (const p of (sc.posts || [])){
+    const a = P(p.pt), bp = P(p.box || boxDefault(p.pt)); if (!inView(bp.x, bp.y)) continue;
+    const ics = POST_ICONS.filter(k => p.icons[k]), iw = Math.max(ics.length * 20, textW(p.name, lfs) + 10), bw = iw + 10, bh = 20 + lfs + 8;
+    path([[p.pt, p.box || boxDefault(p.pt)]], { line:{ color:"868E96", width:pt(1.2) } }, false);
+    if (!p.type) sl.addShape(pptx.ShapeType.ellipse, { x:X(a.x - 4), y:Y(a.y - 4), w:8 * f, h:8 * f, fill:{ color:"15AABF" }, line:{ color:"FFFFFF", width:pt(1.5) } });
+    sl.addShape(pptx.ShapeType.roundRect, { x:X(bp.x - bw/2), y:Y(bp.y - bh/2), w:bw * f, h:bh * f, rectRadius:5 * f, fill:{ color:"FFFFFF" }, line:{ color:"495057", width:pt(1.5) } });
+    for (let i = 0; i < ics.length; i++) await icon(ics[i], bp.x - ics.length * 10 + i * 20 + 10, bp.y - bh/2 + 12, 18, 0);
+    const nw = textW(p.name, lfs) + 10, nh = lfs + 4;
+    sl.addText(p.name, { shape:pptx.ShapeType.roundRect, rectRadius:3 * f, x:X(bp.x - nw/2), y:Y(bp.y - bh/2 + 22), w:nw * f, h:nh * f, fill:{ color:toHex(boxColor(p)) }, fontFace:FONT, fontSize:Math.round(lfs * f * PT * 10) / 10, bold:true, color:"FFFFFF", align:"center", valign:"middle", margin:0 });
+  }
+  // 방위표
+  sl.addShape(pptx.ShapeType.custGeom, { x:X(W - 27 + 4), y:Y(14 + 2), w:18 * f, h:28 * f, points:[{ x:9 * f, y:0, moveTo:true }, { x:18 * f, y:28 * f }, { x:9 * f, y:22 * f }, { x:0, y:28 * f }, { close:true }], fill:{ color:"1F2328" } });
+  sl.addText("N", { x:X(W - 27), y:Y(14 + 31), w:26 * f, h:14 * f, fontFace:FONT, fontSize:Math.round(12 * f * PT * 10) / 10, bold:true, color:"1F2328", align:"center", valign:"middle", margin:0 });
+  // 축척
+  const y0 = H / 2, mpp = map.distance(map.containerPointToLatLng([0, y0]), map.containerPointToLatLng([100, y0])) / 100;
+  const nice = [5,10,20,25,50,100,200,250,500,1000,2000].find(v => v / mpp >= 70) || 2000, px = nice / mpp, sx = 16, sy = H - 22;
+  sl.addShape(pptx.ShapeType.rect, { x:X(sx), y:Y(sy), w:px/2 * f, h:6 * f, fill:{ color:"1F2328" }, line:{ color:"1F2328", width:0.5 } });
+  sl.addShape(pptx.ShapeType.rect, { x:X(sx + px/2), y:Y(sy), w:px/2 * f, h:6 * f, fill:{ color:"FFFFFF" }, line:{ color:"1F2328", width:0.5 } });
+  sl.addText([{ text:"0" }], { x:X(sx - 4), y:Y(sy - 17), w:20 * f, h:13 * f, fontFace:FONT, fontSize:Math.round(11 * f * PT * 10) / 10, color:"1F2328", margin:0 });
+  sl.addText(nice >= 1000 ? nice / 1000 + "km" : nice + "m", { x:X(sx + px - 50), y:Y(sy - 17), w:54 * f, h:13 * f, fontFace:FONT, fontSize:Math.round(11 * f * PT * 10) / 10, color:"1F2328", align:"right", margin:0 });
+  // 범례
+  const li = legendItems(sc.leg);
+  if (li.length){
+    const fs = 12, lw = Math.max(...li.map(([n]) => textW(n, fs) * 1.12)) + 54, lh = 30 + li.length * 21, lx = W - lw - 12, ly0 = H - lh - 12, fpt = Math.round(fs * f * PT * 10) / 10;
+    sl.addShape(pptx.ShapeType.rect, { x:X(lx), y:Y(ly0), w:lw * f, h:lh * f, fill:{ color:"FFFFFF" }, line:{ color:"C9CED6", width:0.75 } });
+    sl.addText("범 례", { x:X(lx + 10), y:Y(ly0 + 6), w:(lw - 20) * f, h:18 * f, fontFace:FONT, fontSize:fpt, bold:true, color:"1F2328", margin:0, valign:"middle" });
+    for (let i = 0; i < li.length; i++){
+      const [n, k] = li[i], yy = ly0 + 32 + i * 21, sw = styles[k] || {};
+      if (k.startsWith("sp_")) await icon(k.slice(3), lx + 22, yy + 6, 18, 0);
+      else if (isLineKey(k)) sl.addShape(pptx.ShapeType.custGeom, { x:X(lx + 12), y:Y(yy + 6), w:20 * f, h:0.001, points:[{ x:0, y:0, moveTo:true }, { x:20 * f, y:0 }], line:{ ...lineOf(sw), width:pt(Math.min(sw.weight, 6)) } });
+      else { const fo = hatchOn(sw) ? Math.max(sw.fillOp, 0.25) : sw.fillOp; sl.addShape(pptx.ShapeType.rect, { x:X(lx + 12), y:Y(yy), w:20 * f, h:12 * f, line:{ ...lineOf(sw), width:pt(Math.min(sw.weight, 2.5)) }, ...(fo > 0 ? { fill:{ color:toHex(sw.fill), transparency:Math.round((1 - fo) * 100) } } : {}) }); }
+      sl.addText(n, { x:X(lx + 40), y:Y(yy - 2), w:(lw - 46) * f, h:16 * f, fontFace:FONT, fontSize:fpt, color:"1F2328", margin:0, valign:"middle" });
+    }
+  }
+}
 async function exportPPT(){
   if (!map || pptBusy) return;
   const rows = state.schools.map(schoolRow);
   if (!state.project.length && !rows.length){ toast("사업지와 학교를 먼저 넣어 주세요"); return; }
-  pptBusy = true; toast("PPT 만드는 중… 잠깐만요", 60000);
-  try { await loadPptx(); } catch(e){ pptBusy = false; toast("PPT 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요"); return; }
-  const keep = { step, pr: { ...state.print }, c: map.getCenter(), z: map.getZoom() };
-  const FONT = "Malgun Gothic", BLUE = "1F3A68", GRAY = "5C636A";
+  pptBusy = true;
+  if (tilesOn() && tileCORS !== true) await startCapture();   // 클릭 바로 다음에 물어봐야 함
+  toast("PPT 만드는 중… 화면이 몇 번 바뀌어요", 120000);
+  try { await loadPptx(); } catch(e){ pptBusy = false; stopCapture(); toast("PPT 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요"); return; }
+  const keep = { step, pr:{ ...state.print }, c:map.getCenter(), z:map.getZoom() };
   const pptx = new PptxGenJS(); pptx.layout = "LAYOUT_WIDE"; pptx.title = state.name;
-  const ovData = await overlayData();
-  const shot = async (preset, title, phase) => {
-    state.print.preset = preset; state.print.disp = null; state.print.title = title; state.print.phase = phase || "all"; state.print.paper = "land";
-    layoutFrame(); map.invalidateSize(false); redraw(); fitScene(); redraw(); await sleep(60);
-    const { svg, W, H } = buildSVG(ovData);
-    return { data: await svgToPng(svg, W, H, 2), W, H };
-  };
-  const hdr = (sl, t, sub) => {
-    sl.addShape(pptx.ShapeType.rect, { x:0, y:0, w:13.33, h:0.08, fill:{ color:BLUE }, line:{ color:BLUE } });
-    sl.addText(t, { x:0.4, y:0.22, w:10.5, h:0.55, fontFace:FONT, fontSize:20, bold:true, color:"1F2328" });
-    if (sub) sl.addText(sub, { x:9.5, y:0.28, w:3.45, h:0.45, fontFace:FONT, fontSize:11, color:GRAY, align:"right" });
-  };
-  const tOpt = (x, y, w, fs) => ({ x, y, w, fontFace:FONT, fontSize:fs || 10, color:"1F2328", border:{ type:"solid", pt:0.75, color:"BFC5CD" }, valign:"middle", margin:0.05, autoPage:true, autoPageRepeatHeader:true, autoPageSlideStartY:0.95, newSlideStartY:0.95 });
-  const H_CELL = t => ({ text:String(t), options:{ bold:true, fill:{ color:"EEF3FC" }, align:"center" } });
-  const C_CELL = t => ({ text:String(t === undefined || t === null ? "-" : t), options:{ align:"center" } });
-  const imgFit = (sl, im, x, y, mw, mh) => { let w = mw, h = w * im.H / im.W; if (h > mh){ h = mh; w = h * im.W / im.H; } sl.addImage({ data: im.data.replace(/^data:/, ""), x, y, w, h }); sl.addShape(pptx.ShapeType.rect, { x, y, w, h, fill:{ type:"none" }, line:{ color:"C9CED6", width:0.75 } }); };
-  // 열이 많으면 학교별 세로 표로 돌리기
-  const shape = (head, body) => head.length > 4 && body.length <= 3 ? [["구분", ...body.map(r => r[1])], ...head.map((h, i) => [h, ...body.map(r => r[i])]).filter((r, i) => i !== 0 && i !== 1)] : [head, ...body];
-  const itemSlide = (x, im, sub, tbl, text) => {
-    const sl = pptx.addSlide(); hdr(sl, `${x.e.sec} ${x.e.name}`, sub);
-    imgFit(sl, im, 0.4, 0.95, 7.55, 6.2);
-    let y = 0.95;
-    if (tbl && tbl.length > 1){
-      const [h, ...b] = tbl, fs = tbl.length > 10 ? 9 : 10;
-      sl.addTable([h.map(H_CELL), ...b.map(r => r.map((c, i) => i === 0 ? { text:String(c), options:{ bold:true, fill:{ color:"F7F8FA" } } } : C_CELL(c)))], { ...tOpt(8.2, y, 4.75, fs), autoPage:false, rowH:0.3 });
-      y += Math.min(4.6, tbl.length * (fs === 9 ? 0.32 : 0.36)) + 0.2;
-    }
-    if (text){
-      sl.addText([{ text:"평가 결과", options:{ bold:true, color:BLUE, fontSize:11, breakLine:true } }, { text, options:{ fontSize:10 } }], { x:8.2, y, w:4.75, h:Math.max(0.8, 7.15 - y), fontFace:FONT, color:"1F2328", valign:"top", fit:"shrink", paraSpaceAfter:4, fill:{ color:"F4F6F9" }, margin:0.1 });
-    }
-  };
+  const SW = 13.333, SH = 7.5;
+  let n = 0, missed = false;
   try {
-    goStep(4); await sleep(80);
-    const o = overview() || {};
-    // 표지
-    const cov = pptx.addSlide();
-    cov.background = { color:"FFFFFF" };
-    cov.addShape(pptx.ShapeType.rect, { x:0, y:0, w:0.25, h:7.5, fill:{ color:BLUE }, line:{ color:BLUE } });
-    cov.addText(state.name || "교육환경평가", { x:0.7, y:2.2, w:6, h:1.2, fontFace:FONT, fontSize:28, bold:true, color:"1F2328", fit:"shrink" });
-    cov.addText("교육환경평가 위치항목 · 평가항목별 정리", { x:0.7, y:3.4, w:6, h:0.5, fontFace:FONT, fontSize:15, color:GRAY });
-    cov.addText(`${o.addr || ""}${o.area ? `\n사업면적 약 ${fmt(o.area)}㎡` : ""}\n${new Date().toLocaleDateString("ko-KR")}`, { x:0.7, y:4.2, w:6, h:1.2, fontFace:FONT, fontSize:12, color:GRAY, valign:"top" });
-    const im0 = await shot("loc", "<사업지 및 대상학교 위치도>");
-    imgFit(cov, im0, 6.9, 0.9, 6.0, 5.7);
-    // 사업개요 + 1.2 조사결과
-    if (o.addr){
-      const sl = pptx.addSlide(); hdr(sl, "사업 개요 및 위치항목 조사결과", "1.2");
-      sl.addTable([[H_CELL("소재지"), C_CELL(o.addr + (o.n > 1 ? ` (${o.n}필지)` : ""))], [H_CELL("사업면적"), C_CELL(`약 ${fmt(o.area)}㎡`)], [H_CELL("지목"), C_CELL(o.jimok)], [H_CELL("용도지역"), C_CELL(o.zone)]], { ...tOpt(0.4, 0.95, 12.5, 11), autoPage:false, colW:[2, 10.5] });
-      if (rows.length){
-        const ld = locData(rows);
-        const head1 = [H_CELL("평가 기준"), H_CELL("조사요소"), ...rows.flatMap(r => [H_CELL(r.s.name + " 사업 전"), H_CELL("사업 후")])];
-        const cw = (12.5 - 5.2) / (rows.length * 2);
-        sl.addTable([head1, ...ld.map(d => [{ text:d.x.g, options:{ fill:{ color:"F7F8FA" } } }, { text:d.x.e }, ...d.cells.map(c => C_CELL(c.v))])], { ...tOpt(0.4, 2.45, 12.5, 8), colW:[2.6, 2.6, ...rows.flatMap(() => [cw, cw])], rowH:0.22 });
-      }
+    goStep(4); await sleep(100);
+    const jobs = [];
+    evalItems(rows).filter(x => x.has).forEach(x => {
+      if (x.e.id === "ev_safe" && x.phases.length) x.phases.forEach(p => jobs.push({ x, title:`${x.e.fig.replace(/>$/, "")} - ${p.name}>`, phase:p.id, sub:p.name }));
+      else jobs.push({ x, title:x.e.fig, phase:"all", sub:"" });
+    });
+    for (const j of jobs){
+      state.print.preset = j.x.e.id; state.print.disp = null; state.print.title = j.title; state.print.phase = j.phase; state.print.paper = "land";
+      layoutFrame(); map.invalidateSize(false); redraw(); fitScene(); redraw(); await sleep(100);
+      const bg = await bgCanvas(2); if (bg.missed) missed = true;
+      const sz = map.getSize(); let h = SH, w = h * sz.x / sz.y; if (w > SW){ w = SW; h = w * sz.y / sz.x; }
+      const box = { x:(SW - w) / 2, y:(SH - h) / 2, w, h };
+      const sl = pptx.addSlide();
+      sl.addImage({ data:bg.c.toDataURL("image/jpeg", 0.9).replace(/^data:/, ""), ...box });
+      await pptShapes(pptx, sl, box);
+      sl.addNotes(`${j.x.e.sec} ${j.x.e.name}${j.sub ? " - " + j.sub : ""}\n${j.title}`);
+      n++;
     }
-    let n = 0;
-    for (const x of evalItems(rows)){
-      if (!x.has) continue;
-      if (x.e.id === "ev_safe" && x.phases.length){
-        for (const p of x.phases){
-          const im = await shot(x.e.id, `${x.e.fig.replace(/>$/, "")} - ${p.name}>`, p.id);
-          const t = safeTableFor(p.id).filter((r, i) => i === 0 || (r[1] && r[1] !== "-"));
-          const s1 = sentenceOf(safeCounts(p.id));
-          itemSlide(x, im, p.name, t, s1 ? "· " + s1 : ""); n++;
-        }
-        continue;
-      }
-      const im = await shot(x.e.id, x.e.fig);
-      itemSlide(x, im, "", x.body.length ? shape(x.head, x.body) : null, x.text); n++;
-    }
-    const fname = `${(state.name || "교육환경평가").replace(/[<>:"/\\|?*]/g, "").trim() || "교육환경평가"}_평가항목별.pptx`;
-    await pptx.writeFile({ fileName: fname });
-    toast(`PPT로 저장했어요 (평가항목 ${n}장)`);
+    const fname = `${(state.name || "교육환경평가").replace(/[<>:"/\\|?*]/g, "").trim() || "교육환경평가"}_평가항목별 그림.pptx`;
+    await pptx.writeFile({ fileName:fname });
+    toast(missed ? `PPT로 저장했어요 (${n}장) · 바탕지도는 빠졌어요 (‘이 탭 공유’를 허용하면 담겨요)` : `PPT로 저장했어요 (평가항목 그림 ${n}장)`, 5000);
   } catch(e){ console.error(e); toast("PPT 만들기에 실패했어요"); }
   finally {
+    stopCapture();
     Object.assign(state.print, keep.pr); save();
     goStep(keep.step); map.setView(keep.c, keep.z, { animate:false });
     pptBusy = false;
@@ -2164,7 +2262,7 @@ async function copy(text, msg){
 
 /* ===== 그림 저장 ===== */
 function textW(t, fs){ let w = 0; for (const ch of String(t)) w += /[가-힣]/.test(ch) ? fs * 0.98 : fs * 0.58; return w; }
-function buildSVG(ovData){
+function buildSVG(ovData, opts = {}){
   const sz = map.getSize(), W = sz.x, H = sz.y;
   const P = c => { const p = map.latLngToContainerPoint([c[1], c[0]]); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; };
   const font = getComputedStyle(document.body).fontFamily.replace(/"/g, "'");
@@ -2173,7 +2271,7 @@ function buildSVG(ovData){
   const st = (k, noFill) => { const s = styles[k], dash = DASHES[s.dash] && DASHES[s.dash][1];
     const f = noFill || isLineKey(k) ? 'fill="none"' : hatchOn(s) ? `fill="url(#xp-${k})"` : `fill="${s.fill}" fill-opacity="${s.fillOp}"`;
     return `stroke="${s.stroke}" stroke-width="${s.weight}" stroke-opacity="${s.lineOp}" ${dash ? `stroke-dasharray="${dash}"` : ""} ${s.dash === "dot" ? 'stroke-linecap="round"' : ""} ${f}`; };
-  const out = [`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${font}">`, `<defs>${allPatterns("xp-")}</defs>`, `<rect width="${W}" height="${H}" fill="#ffffff"/>`];
+  const out = [`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${font}">`, `<defs>${allPatterns("xp-")}</defs>`, (opts.transparent || opts.only) ? "" : `<rect width="${W}" height="${H}" fill="#ffffff"/>`];
   if (ovData && dispNow().overlay !== false) state.overlays.filter(o => o.show && ovData[o.id]).forEach(o => {
     const c = map.latLngToContainerPoint([o.center[1], o.center[0]]);
     const mpp = map.distance(map.containerPointToLatLng([c.x - 50, c.y]), map.containerPointToLatLng([c.x + 50, c.y])) / 100;
@@ -2182,6 +2280,7 @@ function buildSVG(ovData){
     if (su) out.push(`<clipPath id="oc-${o.id}"><path clip-rule="evenodd" d="${polysOf(su).map(poly => poly.map(r => "M" + r.map(P).join("L") + "Z").join(" ")).join(" ")}"/></clipPath>`);
     out.push(`<g ${su ? `clip-path="url(#oc-${o.id})"` : ""}><image href="${ovData[o.id]}" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" opacity="${o.opacity}" preserveAspectRatio="none" transform="translate(${c.x} ${c.y}) rotate(${o.rot})"/></g>`);
   });
+  if (opts.only === "overlay"){ out.push(`</svg>`); return { svg: out.join(""), W, H }; }
   sc.items.forEach(it => {
     if (it.k === "poly") polysOf(it.geom).forEach(poly => out.push(`<path fill-rule="evenodd" d="${poly.map(r => "M" + r.map(P).join("L") + "Z").join(" ")}" ${st(it.sk)} stroke-linejoin="round"/>`));
     else if (it.k === "line") out.push(`<polyline points="${it.coords.map(P).join(" ")}" ${st(it.sk, true)} stroke-linejoin="round"/>`);
@@ -2235,17 +2334,98 @@ function download(blob, name){ const a = document.createElement("a"); a.href = U
 function fileBase(){ return (state.print.title || state.name || "위치도").replace(/[<>:"/\\|?*]/g, "").trim() || "위치도"; }
 async function exportImage(kind){
   if (!map) return;
-  const ovData = await overlayData();
-  const { svg, W, H } = buildSVG(ovData);
-  if (kind === "svg"){ download(new Blob([svg], { type:"image/svg+xml" }), fileBase() + ".svg"); toast("SVG로 저장했어요"); return; }
-  const img = new Image();
-  img.onload = () => {
-    const c = document.createElement("canvas"), k = 3; c.width = W * k; c.height = H * k;
-    const g = c.getContext("2d"); g.scale(k, k); g.drawImage(img, 0, 0);
-    c.toBlob(b => { download(b, fileBase() + ".png"); toast("그림으로 저장했어요"); }, "image/png");
-  };
-  img.onerror = () => toast("그림 만들기에 실패했어요. SVG로 저장해 보세요");
-  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  if (kind === "svg"){ const { svg } = buildSVG(await overlayData()); download(new Blob([svg], { type:"image/svg+xml" }), fileBase() + ".svg"); toast("SVG로 저장했어요 (SVG에는 바탕지도가 안 들어가요)"); return; }
+  if (tilesOn() && tileCORS !== true) await startCapture();   // 클릭 바로 다음에 물어봐야 함
+  toast("그림 만드는 중…", 30000);
+  try {
+    const k = 3, bg = await bgCanvas(k);
+    stopCapture();
+    const { svg, W, H } = buildSVG(null, { transparent:true });
+    const fg = await loadSvgImg(svg);
+    bg.g.drawImage(fg, 0, 0, W, H);
+    bg.c.toBlob(b => { download(b, fileBase() + ".png"); toast(bg.missed ? "바탕지도 없이 저장했어요 (‘이 탭 공유’를 허용하면 바탕지도도 담겨요)" : "그림으로 저장했어요", 4000); }, "image/png");
+  } catch(e){ console.error(e); stopCapture(); toast("그림 만들기에 실패했어요. SVG로 저장해 보세요"); }
+}
+
+/* ===== 바탕지도 담기 =====
+   1) 브이월드 타일을 직접 그려 보고 (서버가 허용하면 묻지 않고 바로 됨)
+   2) 안 되면 브라우저 ‘이 탭 공유’로 화면을 찍어서 지도 틀만 잘라 씀 */
+let tileCORS = null, capStream = null, capVideo = null;
+const MAP_PANES = ["tilePane", "zone", "cad"];
+const tileImgs = () => MAP_PANES.flatMap(p => map && map.getPane(p) ? [...map.getPane(p).querySelectorAll("img.leaflet-tile")] : []);
+const tilesOn = () => !!map && ly.withBase !== false && tileImgs().length > 0;
+function loadCors(src){ return new Promise(res => { const t = new Image(); t.crossOrigin = "anonymous"; const to = setTimeout(() => res(null), 6000); t.onload = () => { clearTimeout(to); res(t); }; t.onerror = () => { clearTimeout(to); res(null); }; t.src = src; }); }
+async function testTileCORS(){
+  const im = tileImgs().find(i => i.classList.contains("leaflet-tile-loaded")); if (!im) return;
+  const t = await loadCors(im.src);
+  if (!t){ tileCORS = false; return; }
+  try { const c = document.createElement("canvas"); c.width = c.height = 2; const g = c.getContext("2d"); g.drawImage(t, 0, 0); g.getImageData(0, 0, 1, 1); tileCORS = true; } catch(e){ tileCORS = false; }
+}
+async function waitTiles(max = 7000){
+  const t0 = Date.now(); await sleep(200);
+  while (Date.now() - t0 < max){ if (!tileImgs().some(im => !im.complete)) break; await sleep(150); }
+  await sleep(200);
+}
+async function drawTiles(g){
+  const mr = $("#map").getBoundingClientRect(); let ok = 0, bad = 0;
+  for (const pn of MAP_PANES){
+    const pane = map.getPane(pn); if (!pane) continue;
+    for (const lay of pane.querySelectorAll(".leaflet-layer")){
+      if (lay.style.display === "none") continue;
+      const op = parseFloat(lay.style.opacity || "1");
+      const ims = [...lay.querySelectorAll("img.leaflet-tile-loaded")];
+      const got = await Promise.all(ims.map(im => loadCors(im.src)));
+      ims.forEach((im, i) => { const t = got[i]; if (!t){ bad++; return; } ok++; const r = im.getBoundingClientRect(); g.globalAlpha = op; g.drawImage(t, r.left - mr.left, r.top - mr.top, r.width, r.height); });
+    }
+  }
+  g.globalAlpha = 1;
+  try { g.getImageData(0, 0, 1, 1); } catch(e){ return { ok:0, bad:1 }; }
+  return { ok, bad };
+}
+function drawMask(g){
+  const su = siteUnion(); if (!su || ly.siteMask === false || !dispNow().project) return;
+  g.beginPath();
+  polysOf(su).forEach(poly => poly.forEach(r => r.forEach((c, i) => { const p = map.latLngToContainerPoint([c[1], c[0]]); i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y); })));
+  g.fillStyle = "#ffffff"; g.fill("evenodd");
+}
+async function startCapture(){
+  if (capVideo) return true;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) return false;
+  try { capStream = await navigator.mediaDevices.getDisplayMedia({ video:{ displaySurface:"browser", frameRate:15 }, audio:false, preferCurrentTab:true, selfBrowserSurface:"include", surfaceSwitching:"exclude" }); }
+  catch(e){ capStream = null; return false; }
+  const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.srcObject = capStream;
+  try { await v.play(); } catch(e){}
+  capVideo = v; capStream.getVideoTracks()[0].addEventListener("ended", stopCapture);
+  await sleep(300); return true;
+}
+function stopCapture(){ if (capStream) capStream.getTracks().forEach(t => t.stop()); capStream = null; capVideo = null; }
+function freshFrame(){ return new Promise(res => { const v = capVideo; let n = 0; const done = () => setTimeout(res, 60); if (v && v.requestVideoFrameCallback){ const f = () => { if (++n >= 3) done(); else v.requestVideoFrameCallback(f); }; v.requestVideoFrameCallback(f); setTimeout(res, 1500); } else setTimeout(res, 600); }); }
+function grabFrame(){
+  const v = capVideo; if (!v || !v.videoWidth) return null;
+  const mr = $("#map").getBoundingClientRect(), sx = v.videoWidth / window.innerWidth, sy = v.videoHeight / window.innerHeight;
+  if (Math.abs(sx - sy) / sx > 0.05){ toast("‘이 탭’을 골라 공유해 주세요 (다른 창·화면은 잘라낼 수 없어요)", 5000); return null; }
+  const c = document.createElement("canvas"); c.width = Math.round(mr.width * sx); c.height = Math.round(mr.height * sy);
+  c.getContext("2d").drawImage(v, mr.left * sx, mr.top * sy, mr.width * sx, mr.height * sy, 0, 0, c.width, c.height);
+  return c;
+}
+function loadSvgImg(svg){ return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg); }); }
+// 지도 틀 크기의 바탕 그림 (바탕지도 + 레이어 + 붙인 도면). 그린 선·글씨는 안 들어감
+async function bgCanvas(k){
+  const sz = map.getSize(), W = sz.x, H = sz.y;
+  const c = document.createElement("canvas"); c.width = Math.round(W * k); c.height = Math.round(H * k);
+  const g = c.getContext("2d"); g.fillStyle = "#ffffff"; g.fillRect(0, 0, c.width, c.height); g.scale(k, k); g.imageSmoothingQuality = "high";
+  const tiles = tilesOn();
+  if (tiles) await waitTiles();
+  if (tiles && capVideo){
+    document.body.classList.add("bgshot"); await freshFrame(); const f = grabFrame(); document.body.classList.remove("bgshot");
+    if (f){ g.drawImage(f, 0, 0, W, H); return { c, g, how:"cap", missed:false }; }
+  }
+  let how = "none";
+  if (tiles){ const r = await drawTiles(g); if (r.ok) how = "tiles"; else if (r.bad) tileCORS = false; }
+  drawMask(g);
+  const ov = await overlayData();
+  if (Object.keys(ov).length){ try { g.drawImage(await loadSvgImg(buildSVG(ov, { only:"overlay" }).svg), 0, 0, W, H); } catch(e){} }
+  return { c, g, how, missed: tiles && how === "none" };
 }
 
 /* ===== 사업 목록 ===== */
@@ -2360,6 +2540,7 @@ document.addEventListener("click", async e => {
   else if (d.delpost){ state.safety.posts = state.safety.posts.filter(x => x.id !== d.delpost); changed(); }
   else if (d.base){ ly.base = d.base; saveLy(); setBase(); renderPanel(); renderLayerPanel(); }
   else if (d.preset){ state.print.preset = d.preset; state.print.disp = null; changed(); }
+  else if (d.roadauto){ autoRoads(); }
   else if (d.evpreset){ applyEv(d.evpreset); if (step !== 4) goStep(4); else { layoutFrame(); redraw(); renderPanel(); } redraw(); fitScene(); }
   else if (d.evcopy){ const x = evalItems(state.schools.map(schoolRow)).find(i => i.e.id === d.evcopy); if (x) d.k === "tbl" ? copy([x.head, ...x.body].map(r => r.join("\t")).join("\n"), "표를 복사했어요 (한글·엑셀에 붙여넣기)") : copy(x.text, "문장을 복사했어요"); }
   else if (d.paper){ state.print.paper = d.paper; save(); layoutFrame(); renderPanel(); }
@@ -2397,6 +2578,7 @@ document.addEventListener("change", e => {
   if (d.ovclip){ const o = state.overlays.find(x => x.id === d.ovclip); if (o){ o.clip = t.checked; save(); syncOverlays(); } return; }
   if (d.ovpaper){ const o = state.overlays.find(x => x.id === d.ovpaper); if (o){ o.paper = t.value; save(); } return; }
   if (d.ovscalen){ const o = state.overlays.find(x => x.id === d.ovscalen); if (o){ o.scale = Number(t.value) || o.scale; save(); } return; }
+  if (d.withbase !== undefined){ ly.withBase = t.checked; saveLy(); renderPanel(); return; }
   if (d.sitemask !== undefined){ ly.siteMask = t.checked; saveLy(); redraw(); return; }
   if (d.ovshow){ const o = state.overlays.find(x => x.id === d.ovshow); if (o){ o.show = t.checked; save(); syncOverlays(); } return; }
   if (d.ovw){ const o = state.overlays.find(x => x.id === d.ovw); if (o){ o.widthM = Math.max(1, Number(t.value) || o.widthM); save(); syncOverlays(); } return; }
