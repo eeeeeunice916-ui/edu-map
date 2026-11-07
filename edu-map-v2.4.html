@@ -144,7 +144,7 @@ body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, b
 #legend,#pLegend{position:absolute;right:12px;bottom:46px;z-index:900;background:rgba(255,255,255,.96);border:1px solid #c9ced6;border-radius:8px;padding:9px 12px;font-size:12px;line-height:1.85;display:none}
 #pLegend{border-radius:0;bottom:12px;right:12px;background:none!important;border:none!important;padding:0!important;line-height:normal}
 #legend i,#pLegend i{display:inline-block;width:18px;height:11px;margin-right:6px;vertical-align:-1px;border-radius:2px}
-#pTitle{position:absolute;left:50%;transform:translateX(-50%);top:12px;z-index:900;background:#fff;border:1px solid #c9ced6;padding:6px 12px;font-size:14px;font-weight:700;display:none}
+#pTitle{font-size:var(--titlefs,14px)!important;position:absolute;left:50%;transform:translateX(-50%);top:12px;z-index:900;background:#fff;border:1px solid #c9ced6;padding:6px 12px;font-size:14px;font-weight:700;display:none}
 #pNorth{position:absolute;left:8px;top:6px;z-index:900;display:none}
 #layerPanel{position:absolute;right:12px;top:104px;z-index:1001;width:320px;max-width:calc(100% - 24px);max-height:calc(100% - 170px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none}
 #layerPanel h4{margin:12px 0 4px;font-size:12px;color:var(--sub)}
@@ -237,7 +237,7 @@ body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, b
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "4.8";
+const APP_VERSION = "4.9";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const KINDS = ["유치원","초등학교","중학교","고등학교","특수학교","기타"];
@@ -1855,7 +1855,7 @@ function updateModeText(){
     m.type === "sgate" ? `${sName(s)} 출입구 위치를 누르세요 (여러 개 가능)` :
     m.type === "pgate" ? "사업지 출입구 위치를 누르세요 (여러 개 가능)" :
     m.type === "ovMove" ? "도면 가운데가 올 위치를 누르세요" :
-    m.type === "select" ? `지도에서 드래그해 도로명·건물명을 고르세요 (Ctrl 누르고 드래그하면 더하기, 글자를 누르면 넣고 빼기) · ${sel.size}개 고름` :
+    m.type === "select" ? `지도 빈 곳을 마우스로 누른 채 끌어 네모를 그리면 그 안의 도로명·건물명이 골라져요 (Ctrl+끌기: 더하기 · 글자 누르기: 넣고 빼기) · ${sel.size}개 고름 → Delete 또는 [고른 것 지우기]` :
     m.type === "photo" ? `사진 찍은 위치를 누르세요 (지금 ${state.photos.length}개)` :
     m.type === "mark" ? `${m.sub === "cwNew" ? "신설" : "현황"} 횡단보도 위치를 누르세요 (여러 개 가능)` :
     m.type === "secline" ? (() => { const sc = findSec(m.id), n = sc ? secName(sc) : ""; return sc && sc.pts.length ? `끝점(${n}′)을 누르세요` : `시작점(${n})을 누르세요 → 끝점(${n}′)`; })() :
@@ -1911,13 +1911,20 @@ function goStep(n){
   layoutFrame(); redraw(); renderRail(); renderPanel(); hints();
   $("#panel").scrollTop = 0;
 }
+// 지금 4단계에서 보고 있는 평가항목 (항목별 설정용)
+const curEv = () => (state.print.preset || "").startsWith("ev_") ? state.print.preset : null;
+const evSet = id => { state.print.items = state.print.items || {}; return state.print.items[id] = state.print.items[id] || {}; };
+function paperOf(){ const id = curEv(), it = id && state.print.items && state.print.items[id]; const p = it && it.paper ? it : state.print; return { paper:p.paper || "land", w:p.pw || 297, h:p.ph || 210 }; }
+function paperRatio(){ const p = paperOf(); return p.paper === "land" ? 297 / 210 : p.paper === "port" ? 210 / 297 : Math.max(0.2, Math.min(5, (p.w || 297) / (p.h || 210))); }
+function paperWmm(){ const p = paperOf(); return p.paper === "land" ? 297 : p.paper === "port" ? 210 : (p.w || 297); }
 function layoutFrame(){
   const fr = $("#frame"), wrap = $("#mapWrap");
   if (step === 4){
-    const W = wrap.clientWidth - 48, H = wrap.clientHeight - 48, r = state.print.paper === "land" ? 297/210 : 210/297;
+    const W = wrap.clientWidth - 48, H = wrap.clientHeight - 48, r = paperRatio();
     const w = Math.max(200, Math.min(W, H * r)), h = w / r;
     fr.className = "print"; fr.style.width = w + "px"; fr.style.height = h + "px";
     wrap.classList.add("printing");
+    document.documentElement.style.setProperty("--titlefs", (state.print.titleFs || 14) + "px");
     $("#pTitle").textContent = state.print.title; $("#pTitle").style.display = state.print.title ? "block" : "none";
     $("#pNorth").style.display = "block";
     toggleLayerPanel(false);
@@ -2146,15 +2153,21 @@ function panel4(){
   <div style="display:flex;flex-direction:column;gap:6px"><label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" data-pbox="on" ${(pr.pbox || {}).on ? "checked" : ""}>사업명 상자</label>
     ${(pr.pbox || {}).on ? `<div class="grid2"><input class="inp sm" data-pbox="text" placeholder="${esc(state.name)}" value="${esc((pr.pbox || {}).text || "")}" aria-label="사업명 상자 글"><input class="inp sm" data-pbox="period" placeholder="2028.08~2032.08" value="${esc((pr.pbox || {}).period || "")}" aria-label="사업 기간"></div><div class="muted">지도에서 상자를 끌어 옮길 수 있어요.</div>` : ""}</div>
   <div style="display:flex;flex-direction:column;gap:6px;font-size:13px"><div class="lab">글자 · 말풍선</div>
-    <div class="row" style="gap:6px"><span style="min-width:74px">도로명 크기</span><input type="range" min="8" max="26" step="1" value="${pr.rnSize || 12}" data-rnsize style="flex:1"><b style="width:36px">${pr.rnSize || 12}px</b></div>
-    <div class="row" style="gap:6px"><span style="min-width:74px">건물명 크기</span><input type="range" min="8" max="24" step="1" value="${pr.bnSize || 11}" data-bnsize style="flex:1"><b style="width:36px">${pr.bnSize || 11}px</b></div>
+    ${[["lbl","지도 글씨", ui.lbl], ["rn","도로명", pr.rnSize || ui.lbl], ["bn","건물명", pr.bnSize || ui.lbl - 1], ["leg","범례 글씨", pr.legFs || 12], ["title","제목", pr.titleFs || 14]].map(([k, n, v]) => `<div class="row" style="gap:6px"><span style="min-width:74px">${n} 크기</span><button class="btn sm" data-fsz="${k}" data-d="-0.05" aria-label="${n} 작게">−</button><input class="inp sm" style="width:84px;text-align:center" type="number" step="0.05" min="5" max="40" data-fszin="${k}" value="${(+v).toFixed(2)}" aria-label="${n} 크기"><button class="btn sm" data-fsz="${k}" data-d="0.05" aria-label="${n} 크게">+</button></div>`).join("")}
     <div class="row" style="gap:6px"><span style="min-width:74px">안전요원</span><div class="seg" style="flex:1">${[["bubble","말풍선"],["box","박스 + 선"]].map(([k, n]) => `<button class="${(state.safety.postStyle || "bubble") === k ? "on" : ""}" data-poststyle="${k}">${n}</button>`).join("")}</div></div>
     <div class="row" style="gap:6px"><span style="min-width:74px">아이콘 한 줄에</span><button class="btn sm" data-bubcols="-1" aria-label="줄이기">−</button><b style="min-width:30px;text-align:center">${state.safety.bubbleCols || 3}개</b><button class="btn sm" data-bubcols="1" aria-label="늘리기">+</button><span class="muted">(요원별로는 3단계에서)</span></div>
     <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" data-declutter ${pr.declutter !== false ? "checked" : ""}>글자끼리 겹치면 자동으로 띄우기</label></div>
   <div style="display:flex;flex-direction:column;gap:4px"><div class="lab">더 표시할 것</div>${state.rnames && state.rnames.items.length ? ck("rnames","도로명") : ""}${state.bnames && state.bnames.items.length ? ck("bnames","건물 · 단지 이름") : ""}${state.marks.length ? ck("marks","횡단보도") : ""}${state.pois.length ? ck("pois","버스정류장 · 어린이보호구역 · CCTV") : ""}${state.szones.length ? ck("szone","통학구역(학구)") + ck("szCenter","통학권 중심 거리") : ""}${!(state.rnames || state.bnames || state.marks.length || state.pois.length || state.szones.length) ? `<div class="muted">3단계 ‘자료 불러오기’에서 도로명 · 건물명 · 횡단보도 · 학구도를 넣으면 여기서 켜고 끌 수 있어요.</div>` : ""}</div>
   <button class="btn sm" data-act="openStyle">색 · 선 · 해치 바꾸기</button>
   <div><label class="lab" for="ptitle">제목</label><input class="inp" id="ptitle" data-ptitle value="${esc(pr.title)}"></div>
-  <div><div class="lab">용지</div><div class="seg">${[["land","A4 가로"],["port","A4 세로"]].map(([k,n]) => `<button class="${pr.paper===k?"on":""}" data-paper="${k}">${n}</button>`).join("")}</div></div>
+  <div><div class="lab">지도 틀 (모든 그림 기본)</div><div class="seg">${[["land","A4 가로"],["port","A4 세로"],["custom","직접"]].map(([k,n]) => `<button class="${(pr.paper || "land")===k?"on":""}" data-paper="${k}">${n}</button>`).join("")}</div>
+    ${pr.paper === "custom" ? `<div class="row" style="gap:6px;margin-top:6px;font-size:13px"><span>가로</span><input class="inp sm" style="width:80px" type="number" step="0.05" min="20" data-pw="all" value="${pr.pw || 297}">mm<span>세로</span><input class="inp sm" style="width:80px" type="number" step="0.05" min="20" data-pph="all" value="${pr.ph || 210}">mm</div>` : ""}</div>
+  ${curEv() ? (() => { const id = curEv(), e = EV_DEFS.find(x => x.id === id), it = (pr.items || {})[id] || {};
+    return `<div class="card" style="border-color:#74c0fc;background:#f3f9ff"><b style="font-size:14px">이 그림만: ${esc(e ? e.sec + " " + e.short : id)}</b>
+      <div class="lab" style="margin-top:6px">지도 틀</div><div class="seg">${[["", "기본 따름"],["land","가로"],["port","세로"],["custom","직접"]].map(([k,n]) => `<button class="${(it.paper || "")===k?"on":""}" data-ipaper="${k}">${n}</button>`).join("")}</div>
+      ${it.paper === "custom" ? `<div class="row" style="gap:6px;margin-top:6px;font-size:13px"><span>가로</span><input class="inp sm" style="width:80px" type="number" step="0.05" min="20" data-pw="item" value="${it.pw || 297}">mm<span>세로</span><input class="inp sm" style="width:80px" type="number" step="0.05" min="20" data-pph="item" value="${it.ph || 210}">mm</div>` : ""}
+      <div class="row" style="gap:6px;margin-top:8px"><button class="btn sm ${it.view && it.view.z ? "on" : ""}" data-act="lockItemView">${it.view && it.view.z ? "이 그림 위치 다시 고정" : "지금 화면으로 이 그림 고정"}</button>${it.view && it.view.z ? `<button class="btn sm" data-act="unlockItemView">고정 풀기</button>` : ""}</div>
+      <div class="muted" style="margin-top:4px">이 평가항목 그림만 틀 모양과 위치·축척을 따로 정해요. PPT에도 그대로 들어가요.</div></div>`; })() : ""}
   <label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" data-withbase ${ly.withBase !== false ? "checked" : ""}>바탕지도(지도·위성·켠 레이어)도 같이 저장</label>
   <div class="muted">지도를 끌고 확대해서 틀 안에 맞춘 뒤 저장하세요.${ly.withBase !== false && tileCORS !== true ? " 저장할 때 ‘이 탭 공유’ 창이 뜨면 이 탭을 고르고 [공유]를 눌러 주세요. 바탕지도만 찍고 바로 멈춰요." : ""} PPT는 바탕지도를 그림으로, 선·글씨·기호는 하나씩 고칠 수 있는 도형으로 넣어요.</div>
   <div class="grid2 next"><button class="btn" data-act="fit">전체 맞추기</button><button class="btn" data-export="svg">SVG 저장</button></div>
@@ -2579,6 +2592,14 @@ function bulkSections(txt){
   return n;
 }
 
+/* ===== 글씨 크기 (0.05 단위) ===== */
+function curFsz(k){ const pr = state.print; return k === "lbl" ? ui.lbl : k === "rn" ? (pr.rnSize || ui.lbl) : k === "bn" ? (pr.bnSize || ui.lbl - 1) : k === "leg" ? (pr.legFs || 12) : (pr.titleFs || 14); }
+function setFsz(k, v){
+  v = Math.max(5, Math.min(40, v));
+  if (k === "lbl"){ ui.lbl = v; applyUI(); const sel = $("#lblSel"); if (sel && ![...sel.options].some(o => o.value === String(v))) sel.add(new Option(v + "px", String(v))); if (sel) sel.value = String(v); }
+  else state.print[{ rn:"rnSize", bn:"bnSize", leg:"legFs", title:"titleFs" }[k]] = v;
+  save(); redraw(); renderPanel();
+}
 /* ===== 회사 스타일 저장 ===== */
 const stylePresets = () => ls("eduMap.stylePresets") || {};
 function takeStyle(){ return { styles: JSON.parse(JSON.stringify(styles)), icons: JSON.parse(JSON.stringify(iconSt)), leg:{ ...(state.print.leg || {}) }, rnSize:state.print.rnSize, bnSize:state.print.bnSize, postStyle:state.safety.postStyle, bubbleCols:state.safety.bubbleCols, lblfs: getComputedStyle(document.documentElement).getPropertyValue("--lblfs") }; }
@@ -2694,9 +2715,9 @@ function swatchPrims(k, sx, cy){
   return [{ t:"rect", x:sx, y:cy - 6, w:20, h:12, fill: fo > 0 ? s.fill : "none", fillOp:fo, stroke: s.lineOp > 0 ? s.stroke : null, sw: s.weight <= 0.5 ? 0.6 : Math.min(s.weight, 2.5), dash:s.dash }];
 }
 function legendLayout(li){
-  const L = state.print.leg || {}, sty = L.style || "tab", mode = L.mode || "col", n = Math.max(1, Math.min(8, L.n || 1)), fs = 12, N = li.length;
+  const L = state.print.leg || {}, sty = L.style || "tab", mode = L.mode || "col", n = Math.max(1, Math.min(8, L.n || 1)), fs = state.print.legFs || 12, N = li.length;
   const cols = mode === "col" ? Math.min(n, N) : Math.ceil(N / Math.min(n, N)), rows = mode === "col" ? Math.ceil(N / cols) : Math.min(n, N);
-  const iw = Math.max(...li.map(([nm]) => textW(nm, fs))) + 40, ih = 21, top = { tab:22, card:34, band:28, mini:30 }[sty] || 22;
+  const iw = Math.max(...li.map(([nm]) => textW(nm, fs))) + 40, ih = Math.max(21, fs + 9), top = { tab:22, card:34, band:28, mini:30 }[sty] || 22;
   return { sty, mode, cols, rows, iw, ih, top, fs, w: cols * iw + 14, h: top + rows * ih + 8 };
 }
 function legendPrims(li, x0, y0){
@@ -2717,7 +2738,7 @@ function legendPrims(li, x0, y0){
 function northPrims(x, y){ return [{ t:"text", x, y:y + 11, text:"N", size:12, color:"#1F2328", bold:true, anchor:"middle" }, { t:"poly", pts:[[x, y + 14], [x + 7, y + 36], [x, y + 32], [x - 7, y + 36]], fill:"#E03131" }, { t:"poly", pts:[[x, y + 58], [x + 7, y + 36], [x, y + 40], [x - 7, y + 36]], fill:"#1C3FD6" }, { t:"text", x, y:y + 71, text:"S", size:12, color:"#1F2328", bold:true, anchor:"middle" }]; }
 function decoPrims(sc, W, H){
   const P = [];
-  if (state.print.title){ const tw = textW(state.print.title, 14) + 24; P.push({ g:"제목", t:"rect", x:W / 2 - tw / 2, y:10, w:tw, h:28, fill:"#FFFFFF", stroke:"#C9CED6", sw:1 }, { t:"text", x:W / 2, y:29, text:state.print.title, size:14, color:"#1F2328", bold:true, anchor:"middle" }); }
+  if (state.print.title){ const tfs = state.print.titleFs || 14, tw = textW(state.print.title, tfs) + 24, th = tfs + 14; P.push({ g:"제목", t:"rect", x:W / 2 - tw / 2, y:10, w:tw, h:th, fill:"#FFFFFF", stroke:"#C9CED6", sw:1 }, { t:"text", x:W / 2, y:10 + th / 2 + tfs * 0.36, text:state.print.title, size:tfs, color:"#1F2328", bold:true, anchor:"middle" }); }
   P.push({ g:"방위표", t:"rect", x:0, y:0, w:0.5, h:0.5, fill:"none" }, ...northPrims(22, 6));
   const y0 = H / 2, mpp = map.distance(map.containerPointToLatLng([0, y0]), map.containerPointToLatLng([100, y0])) / 100;
   const nice = [5,10,20,25,50,100,200,250,500,1000,2000].find(v => v / mpp >= 70) || 2000, px = nice / mpp, sx = 16, sy = H - 22;
@@ -3015,10 +3036,12 @@ function coreBounds(){
   state.schools.forEach(s0 => { s0.parcels.forEach(p => ringsOf(p.geom).forEach(r => pts.push(...r))); if (s0.gate) pts.push(s0.gate); });
   return pts.length ? L.latLngBounds(pts.map(c => [c[1], c[0]])) : null;
 }
-function scaleDen(){ if (!map) return 0; const sz = map.getSize(), y0 = sz.y / 2, mpp = map.distance(map.containerPointToLatLng([0, y0]), map.containerPointToLatLng([100, y0])) / 100, wmm = state.print.paper === "port" ? 210 : 297; return mpp * sz.x / (wmm / 1000); }
+function scaleDen(){ if (!map) return 0; const sz = map.getSize(), y0 = sz.y / 2, mpp = map.distance(map.containerPointToLatLng([0, y0]), map.containerPointToLatLng([100, y0])) / 100, wmm = paperWmm(); return mpp * sz.x / (wmm / 1000); }
 function fitCore(){ const b = coreBounds(); if (!b) return fitScene(); map.fitBounds(b, { padding:[70, 70], maxZoom:19, animate:false }); }
 // 평가항목 그림의 위치·축척: 고정한 화면 → 모두 같게(사업지·학교 가운데) → 그림마다 맞추기
 function applyFigView(){
+  const id = curEv(), IV = id && state.print.items && state.print.items[id] && state.print.items[id].view;
+  if (IV && IV.z){ map.setView([IV.c[1], IV.c[0]], IV.z, { animate:false }); return; }
   const V = state.print.view;
   if (V && V.z){ map.setView([V.c[1], V.c[0]], V.z, { animate:false }); return; }
   if (state.print.viewMode === "fit") return fitScene();
@@ -3234,7 +3257,7 @@ async function exportPPT(){
     for (const j of jobs){
       if (j.sec){ await secSlide(pptx, j.sec); n++; continue; }
       if (j.photos){ await photoSlide(pptx, j.photos, j.start); n++; continue; }
-      state.print.preset = j.x.e.id; state.print.disp = null; state.print.title = j.title; state.print.phase = j.phase; state.print.paper = "land";
+      state.print.preset = j.x.e.id; state.print.disp = null; state.print.title = j.title; state.print.phase = j.phase;
       layoutFrame(); map.invalidateSize(false); redraw(); applyFigView(); redraw(); await sleep(100);
       const bg = await bgCanvas(2); if (bg.missed) missed = true;
       const sz = map.getSize(); let h = SH, w = h * sz.x / sz.y; if (w > SW){ w = SW; h = w * sz.y / sz.x; }
@@ -3484,6 +3507,8 @@ document.addEventListener("click", async e => {
       case "clearBnames": if (confirm("건물·단지 이름을 모두 지울까요?")){ state.bnames = null; changed(); } break;
       case "autoRot": autoRotate(); break;
       case "diag": diagnose(); break;
+      case "lockItemView": { const id = curEv(); if (id){ const c = map.getCenter(); evSet(id).view = { c:[c.lng, c.lat], z:map.getZoom() }; save(); renderPanel(); toast("이 그림 위치·축척을 고정했어요"); } break; }
+      case "unlockItemView": { const id = curEv(); if (id){ evSet(id).view = null; save(); applyFigView(); redraw(); renderPanel(); } break; }
       case "lockView": { const c = map.getCenter(); state.print.view = { c:[c.lng, c.lat], z:map.getZoom() }; save(); renderPanel(); toast("이 화면 위치·축척을 모든 평가항목 그림에 써요"); break; }
       case "unlockView": state.print.view = null; save(); applyFigView(); redraw(); renderPanel(); break;
       case "selMode": if (on("select")){ setMode(null); redraw(); } else setMode({ type:"select" }); break;
@@ -3561,6 +3586,7 @@ document.addEventListener("click", async e => {
   else if (d.nmdel){ const L0 = d.nmdel === "rn" ? state.rnames : state.bnames; if (L0){ L0.items = L0.items.filter(x => x.id !== d.id); changed(); } }
   else if (d.szdel){ state.szones = state.szones.filter(z => z.id !== d.szdel); changed(); }
   else if (d.legsty){ state.print.leg = { ...(state.print.leg || {}), style:d.legsty }; save(); redraw(); renderPanel(); }
+  else if (d.fsz){ setFsz(d.fsz, Math.round((curFsz(d.fsz) + Number(d.d)) * 100) / 100); }
   else if (d.poststyle){ state.safety.postStyle = d.poststyle; save(); redraw(); renderPanel(); }
   else if (d.bubcols){ state.safety.bubbleCols = Math.max(1, Math.min(8, (state.safety.bubbleCols || 3) + Number(d.bubcols))); save(); redraw(); renderPanel(); }
   else if (d.postcols){ const p = state.safety.posts.find(x => x.id === d.postcols) || state.safety.pts.find(x => x.id === d.postcols); if (p){ p.cols = Math.max(1, Math.min(8, (p.cols || state.safety.bubbleCols || 3) + Number(d.d))); save(); redraw(); renderPanel(); } }
@@ -3575,7 +3601,8 @@ document.addEventListener("click", async e => {
   else if (d.seccol){ const sc = findSec(d.seccol); if (sc){ sc.color = d.c; changed(); } }
   else if (d.evpreset){ applyEv(d.evpreset); if (step !== 4) goStep(4); else { layoutFrame(); redraw(); renderPanel(); } redraw(); applyFigView(); }
   else if (d.evcopy){ const x = evalItems(state.schools.map(schoolRow)).find(i => i.e.id === d.evcopy); if (x) d.k === "tbl" ? copy([x.head, ...x.body].map(r => r.join("\t")).join("\n"), "표를 복사했어요 (한글·엑셀에 붙여넣기)") : copy(x.text, "문장을 복사했어요"); }
-  else if (d.paper){ state.print.paper = d.paper; save(); layoutFrame(); renderPanel(); }
+  else if (d.paper){ state.print.paper = d.paper; save(); layoutFrame(); renderPanel(); setTimeout(() => { applyFigView(); redraw(); }, 60); }
+  else if (d.ipaper !== undefined){ const id = curEv(); if (id){ const it = evSet(id); it.paper = d.ipaper || null; save(); layoutFrame(); renderPanel(); setTimeout(() => { applyFigView(); redraw(); }, 60); } }
   else if (d.export) exportImage(d.export);
   else if (d.rtab){ resTab = d.rtab; renderPanel(); }
   else if (d.popen){ closeDlg(); switchProject(d.popen); }
@@ -3637,6 +3664,8 @@ document.addEventListener("change", e => {
   if (d.link){ state.manual.link[d.link] = t.value; changed(); }
   if (d.focus !== undefined){ focusOn = t.checked; ls("eduMap.focus", focusOn); redraw(); return; }
   if (d.qs){ const st = styles[d.qs]; if (st){ if (d.f === "fillOp") st.fillOp = Number(t.value) / 100; else st[d.f] = t.value; saveStyles(); redraw(); } return; }
+  if (d.fszin){ const v = parseFloat(t.value); if (isFinite(v)) setFsz(d.fszin, Math.round(v * 100) / 100); return; }
+  if (d.pw || d.pph){ const v = Math.max(20, Math.round(parseFloat(t.value) * 100) / 100); if (!isFinite(v)) return; const tg = (d.pw || d.pph) === "item" ? evSet(curEv()) : state.print; tg[d.pw ? "pw" : "ph"] = v; save(); layoutFrame(); setTimeout(() => { applyFigView(); redraw(); }, 60); return; }
   if (d.rnsize !== undefined){ state.print.rnSize = Number(t.value); save(); redraw(); renderPanel(); return; }
   if (d.bnsize !== undefined){ state.print.bnSize = Number(t.value); save(); redraw(); renderPanel(); return; }
   if (d.declutter !== undefined){ state.print.declutter = t.checked; save(); redraw(); return; }
