@@ -233,7 +233,7 @@ body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, b
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "4.3";
+const APP_VERSION = "4.4";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const KINDS = ["유치원","초등학교","중학교","고등학교","특수학교","기타"];
@@ -1263,7 +1263,16 @@ const EV_DEFS = [
 ];
 EV_DEFS.forEach(e => e.disp = { ...EV_BASE, ...e.d });
 const presetOf = k => PRESETS[k] || EV_DEFS.find(e => e.id === k) || PRESETS.loc;
-function dispNow(){ return step === 4 ? { ...presetOf(state.print.preset).disp, ...(state.print.disp || {}) } : DEFAULT_DISP(); }
+// 3단계: 열린 위치 항목에 필요한 것만 / 1·2단계: 사업지·학교 위주
+const ITEM_EV = { park:"ev_park", cult:"ev_cult", walk:"ev_walk", traffic:"ev_traffic", roads:"ev_roads", sw:"ev_sw", ent:"ev_ent", safe:"ev_safe1", safe2:"ev_safe2", safe3:"ev_safe3", safe4:"ev_safe4", safe5:"ev_safe5", haz:"ev_haz" };
+let focusOn = ls("eduMap.focus") !== false;
+function dispNow(){
+  if (step === 4) return { ...presetOf(state.print.preset).disp, ...(state.print.disp || {}) };
+  if (focusOn && step === 3 && openItem && ITEM_EV[openItem]){ const e = EV_DEFS.find(x => x.id === ITEM_EV[openItem]); if (e) return { ...e.disp, overlay:true }; }
+  if (focusOn && step === 1) return { ...EV_BASE, overlay:true, safety:false };
+  if (focusOn && step === 2) return { ...EV_BASE, zones:true, overlay:true };
+  return DEFAULT_DISP();
+}
 // 두 모양 사이 가장 가까운 두 점
 function nearestFromPoint(pt, g){
   const xy = makeXY(pt), p = xy(pt); let best = { d:Infinity };
@@ -2009,6 +2018,7 @@ function panel3(){
   const items = checkItems(), done = items.filter(i => i.ok).length;
   if (openItem === null) openItem = (items.find(i => !i.ok) || items[0]).id;
   return `<div class="row" style="align-items:flex-end">${head(3, "위치항목 조사", "4.1 위치")}<div style="flex:1"></div><div class="muted">${done} / ${items.length} 완료</div></div>
+  <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#4a5260"><input type="checkbox" data-focus ${focusOn ? "checked" : ""}>열린 항목에 필요한 것만 지도에 보기 <span class="muted">(끄면 전부 보여요)</span></label>
   <div class="prog"><i style="width:${Math.round(done/items.length*100)}%"></i></div>
   ${items.map(it => `<div class="item ${openItem === it.id ? "open" : ""}">
     <button class="ihead" data-open="${it.id}" aria-expanded="${openItem === it.id}"><span class="sd ${it.ok ? "ok" : "todo"}">${it.ok ? "✓" : "!"}</span>
@@ -2307,7 +2317,7 @@ function safeItems2to5(rows, mk){
 const SEC_COLORS = { magenta:{ c:"#C026D3", g:"#FFFFFF", n:"자홍 (보고서)" }, blue:{ c:"#1E6FD9", g:"#FFFFFF", n:"파랑 + 흰 네온" }, yellow:{ c:"#FFE600", g:"#000000", n:"노랑 + 검정 네온" }, green:{ c:"#39FF14", g:"#000000", n:"형광초록 + 검정 네온" }, black:{ c:"#000000", g:"#FFFFFF", n:"검정 + 흰 네온" } };
 const SEC_GLOW_PT = 0.2;
 const secName = s => s.letter + (s.num ? s.num : "");
-const SEG_T = { 보도:{ h:9, fill:"#F8D7DA", hatch:true }, 자전거:{ h:9, fill:"#C5ECF7" }, 식수대:{ h:9, fill:"#C9EBB8" }, 녹지:{ h:9, fill:"#C9EBB8" }, 구조물:{ h:9, fill:"#F1F3F5", hatch:true }, 셋백:{ h:9, fill:"#FFF2CC" }, 측구:{ h:5, fill:"#111111" } };
+const SEG_T = { 보도:{ h:11, fill:"#F8D7DA", hatch:true }, 자전거:{ h:11, fill:"#C5ECF7" }, 식수대:{ h:11, fill:"#C9EBB8" }, 녹지:{ h:11, fill:"#C9EBB8" }, 구조물:{ h:11, fill:"#F1F3F5", hatch:true }, 셋백:{ h:9, fill:"#FFF2CC" }, 측구:{ h:5, fill:"#111111" } };
 function parseSegs(txt){
   const out = [];
   String(txt || "").split(/[,\n]/).map(x => x.trim()).filter(Boolean).forEach(tok => {
@@ -2323,14 +2333,14 @@ function parseSegs(txt){
   return out;
 }
 const SEC_ICON = {
-  car:`<path d="M2.5 15.5 L4.6 9.6 Q5.4 7.6 7.6 7.6 H16.4 Q18.6 7.6 19.4 9.6 L21.5 15.5 V19.4 H2.5 Z" fill="#fff" stroke="#222" stroke-width="1.1" stroke-linejoin="round"/><path d="M5.4 12.2 H18.6" stroke="#222" stroke-width="1"/><rect x="4.4" y="15.6" width="3.2" height="1.8" fill="#222"/><rect x="16.4" y="15.6" width="3.2" height="1.8" fill="#222"/><rect x="9.5" y="15.9" width="5" height="1.4" fill="none" stroke="#222" stroke-width=".8"/><rect x="3.4" y="19.4" width="3" height="2.6" fill="#222"/><rect x="17.6" y="19.4" width="3" height="2.6" fill="#222"/>`,
-  ped:`<circle cx="9" cy="3.6" r="2.3" fill="#F5B300"/><path d="M5.6 7.4 H12.4 L13.6 15 H11.4 V23 H6.6 V15 H4.4 Z" fill="#F5B300"/><circle cx="17.4" cy="10" r="1.8" fill="#F5B300"/><path d="M15 13 H19.8 L20.6 18 H19.2 V23 H15.6 V18 H14.2 Z" fill="#F5B300"/>`
+  car:`<rect x="3.6" y="19" width="3.4" height="3.2" rx="1.2" fill="#222"/><rect x="17" y="19" width="3.4" height="3.2" rx="1.2" fill="#222"/><path d="M2.6 15.8 Q2.6 12.9 4.9 12.3 L6.5 8.7 Q7.4 6.4 9.9 6.4 H14.1 Q16.6 6.4 17.5 8.7 L19.1 12.3 Q21.4 12.9 21.4 15.8 V18.6 Q21.4 20 20 20 H4 Q2.6 20 2.6 18.6 Z" fill="#fff" stroke="#222" stroke-width="1" stroke-linejoin="round"/><path d="M6.8 12.2 Q7.7 9 10 8.9 H14 Q16.3 9 17.2 12.2 Z" fill="#e9ecef" stroke="#222" stroke-width=".8" stroke-linejoin="round"/><circle cx="6.1" cy="15.6" r="1.35" fill="#fff" stroke="#222" stroke-width=".8"/><circle cx="17.9" cy="15.6" r="1.35" fill="#fff" stroke="#222" stroke-width=".8"/><rect x="9.3" y="15" width="5.4" height="1.7" rx=".85" fill="none" stroke="#222" stroke-width=".7"/><path d="M4.4 18.2 H19.6" stroke="#222" stroke-width=".6"/>`,
+  ped:`<circle cx="9" cy="3.7" r="2.4" fill="#F5B300"/><rect x="5.4" y="6.8" width="7.2" height="8.6" rx="3" fill="#F5B300"/><rect x="6.4" y="13" width="2.2" height="10" rx="1.1" fill="#F5B300"/><rect x="9.4" y="13" width="2.2" height="10" rx="1.1" fill="#F5B300"/><path d="M12.2 8.6 Q14.6 10.6 15.6 12.4" stroke="#F5B300" stroke-width="1.6" stroke-linecap="round" fill="none"/><circle cx="17.2" cy="10.4" r="1.9" fill="#F5B300"/><rect x="14.6" y="12.8" width="5.2" height="6" rx="2.2" fill="#F5B300"/><rect x="15.3" y="17.6" width="1.7" height="5.4" rx=".85" fill="#F5B300"/><rect x="17.4" y="17.6" width="1.7" height="5.4" rx=".85" fill="#F5B300"/>`
 };
 // 단면 한 줄을 도형 목록으로 (화면 · SVG · PPT 가 같이 씀)
 function secPrims(sec, which, W = 900){
   const segs = parseSegs(sec[which]), total = Math.round(segs.reduce((a, g) => a + (g.w || 0), 0) * 100) / 100;
   const Pm = [], H = 200; if (!total) return { P:Pm, W, H, total:0 };
-  const mL = 60, mR = 60, sc = (W - mL - mR) / total, y0 = 112, imp = which === "imp", nc = imp ? "#E03131" : "#1F2328";
+  const sc = Math.min((W - 120) / total, 24), mL = (W - total * sc) / 2, mR = mL, y0 = 112, imp = which === "imp", nc = imp ? "#E03131" : "#1F2328";
   const col = SEC_COLORS[sec.color] || SEC_COLORS.blue, nm = secName(sec);
   let x = mL; const runs = [];
   Pm.push({ t:"line", x1:mL, y1:y0, x2:W - mR, y2:y0, stroke:"#1F2328", sw:1 });
@@ -2346,9 +2356,9 @@ function secPrims(sec, which, W = 900){
       if (g.t === "자전거") Pm.push(...dotPrims(x, y0 - ty.h, w, ty.h, "#15AABF"));
       if (g.t === "식수대" || g.t === "녹지") Pm.push(...dotPrims(x, y0 - ty.h, w, ty.h, "#2F9E44"));
       Pm.push({ t:"rect", x, y:y0 - ty.h, w, h:ty.h, fill:"none", stroke:"#1F2328", sw:0.6 }); }
-    if (g.t === "차도" && g.w >= 2.2){ const z = Math.min(30, w * 0.92); Pm.push({ t:"icon", key:"car", x:x + w / 2 - z / 2, y:y0 - z * 0.92, size:z }); }
+    if (g.t === "차도" && g.w >= 2.2){ const z = Math.min(40, w * 0.95); Pm.push({ t:"icon", key:"car", x:x + w / 2 - z / 2, y:y0 - z * 0.92, size:z }); }
     if (g.t === "주차면" && g.w >= 1){ Pm.push({ t:"rect", x, y:y0 - 2, w, h:2, fill:"#ADB5BD" }); }
-    if (g.t === "보도" && g.w >= 1.2 && !g.roof){ const z = 22; Pm.push({ t:"icon", key:"ped", x:x + w / 2 - z / 2, y:y0 - ty.h - z, size:z }); }
+    if (g.t === "보도" && g.w >= 1.2 && !g.roof){ const z = 28; Pm.push({ t:"icon", key:"ped", x:x + w / 2 - z / 2, y:y0 - ty.h - z, size:z }); }
     if (g.t === "중앙선"){ const cx = x + w / 2; (g.w >= 0.3 ? [cx - 3.5, cx + 1] : [cx - 1.2]).forEach(xx => Pm.push({ t:"rect", x:xx, y:y0 - 6, w:2.5, h:6, fill:"#F08C00" })); }
     if (g.t === "분리대"){ const cx = x + w / 2; [cx - 3.5, cx + 1].forEach(xx => Pm.push({ t:"rect", x:xx, y:y0 - 6, w:2.5, h:6, fill:"#1F2328" })); }
     if (g.t === "차도" && segs[i - 1] && segs[i - 1].t === "차도") Pm.push({ t:"rect", x:x - 1, y:y0 - 5, w:2, h:5, fill:"#1F2328" });
@@ -2368,11 +2378,11 @@ function secPrims(sec, which, W = 900){
   // 치수
   const yd = y0 + 46, ticks = [mL]; runs.forEach(r => { if (r.w) ticks.push(r.x1); });
   Pm.push({ t:"line", x1:mL, y1:yd, x2:x, y2:yd, stroke:"#1F2328", sw:0.8 });
-  [...new Set(ticks.map(v => Math.round(v * 10) / 10))].forEach(v => Pm.push({ t:"line", x1:v, y1:yd - 7, x2:v, y2:yd + 7, stroke:"#1F2328", sw:0.8 }, { t:"dot", x:v, y:yd, r:2.2, fill:"#1F2328" }));
+  [...new Set(ticks.map(v => Math.round(v * 10) / 10))].forEach(v => Pm.push({ t:"line", x1:v, y1:yd - 5, x2:v, y2:yd + 5, stroke:"#1F2328", sw:0.7 }, { t:"dot", x:v, y:yd, r:3.2, fill:"#1F2328" }));
   runs.filter(r => r.w).forEach(r => { const v = wfmt(r.w), narrow = (r.x1 - r.x0) < textW(v, 11) + 2; Pm.push({ t:"text", x:(r.x0 + r.x1) / 2, y:yd + (narrow ? 31 : 15), text:v, size:11, color:nc, anchor:"middle" }); });
   // 총폭
   const yt = y0 - 80;
-  Pm.push({ t:"line", x1:mL, y1:yt, x2:x, y2:yt, stroke:"#1F2328", sw:0.8 }, { t:"dot", x:mL, y:yt, r:2.2, fill:"#1F2328" }, { t:"dot", x, y:yt, r:2.2, fill:"#1F2328" }, { t:"line", x1:mL, y1:yt - 6, x2:mL, y2:yt + 6, stroke:"#1F2328", sw:0.8 }, { t:"line", x1:x, y1:yt - 6, x2:x, y2:yt + 6, stroke:"#1F2328", sw:0.8 });
+  Pm.push({ t:"line", x1:mL, y1:yt, x2:x, y2:yt, stroke:"#1F2328", sw:0.8 }, { t:"dot", x:mL, y:yt, r:3.2, fill:"#1F2328" }, { t:"dot", x, y:yt, r:3.2, fill:"#1F2328" }, { t:"line", x1:mL, y1:yt - 5, x2:mL, y2:yt + 5, stroke:"#1F2328", sw:0.7 }, { t:"line", x1:x, y1:yt - 5, x2:x, y2:yt + 5, stroke:"#1F2328", sw:0.8 });
   Pm.push({ t:"text", x:(mL + x) / 2, y:yt - 6, text:`${wfmt(sec[which + "T"] || total)}m`, size:12, color:nc, anchor:"middle" });
   // 단면 글자
   Pm.push({ t:"text", x:mL - 10, y:y0 + 2, text:nm, size:24, color:col.c, glow:col.g, anchor:"end", bold:true });
@@ -3174,7 +3184,7 @@ document.addEventListener("click", async e => {
   else if (d.gate) setMode(on("gate", d.gate) ? null : { type:"gate", id:d.gate });
   else if (d.zsrc){ const s = findS(d.zsrc); if (!s) return; if (d.v === "official" && !s.official){ const ok = await loadOfficial(s); if (!ok) return; } s.zsrc = d.v; changed(); }
   else if (d.loadoff){ const s = findS(d.loadoff); if (s && await loadOfficial(s)){ s.zsrc = "official"; changed(); } }
-  else if (d.open){ openItem = openItem === d.open ? "" : d.open; renderPanel(); }
+  else if (d.open){ openItem = openItem === d.open ? "" : d.open; renderPanel(); redraw(); }
   else if (d.auto) autoFind(d.auto);
   else if (d.autoadd !== undefined){ const r = autoRes.find(x => String(x.i) === d.autoadd); if (r){ state.facs.push({ id:uid("f"), type:r.type, name:r.name, parcels:[{ pnu:"auto_"+uid(""), addr:r.cat || r.name, jimok:"", zone:"", jiga:null, geom:r.geom }], point:null }); autoRes = autoRes.filter(x => x !== r); changed(); toast(`${r.name}을(를) 넣었어요`); } }
   else if (d.addfac){ const type = d.addfac, id = uid("f"), n = state.facs.filter(f => f.type === type).length + 1; state.facs.push({ id, type, name: type === "gateA" ? `단지 출입구${n}` : type === "cons" ? `공사차량 출입구${n}` : `${FAC_TYPES[type].name.split("·")[0]}${n}`, parcels:[], point:null }); save(); setMode(type === "gateA" || type === "cons" ? { type:"facPt", id } : { type:"facP", id }); toast(type === "gateA" || type === "cons" ? "지도에서 출입구 위치를 눌러 주세요" : "지도에서 시설 필지를 눌러 주세요 (점으로도 가능)", 3500); }
@@ -3283,6 +3293,7 @@ document.addEventListener("change", e => {
   if (d.wwidth){ const r = findW(d.wwidth); if (r){ r.width = t.value === "" ? null : Number(t.value); changed(); } }
   if (d.traffic){ state.manual.traffic[d.traffic] = t.value; changed(); }
   if (d.link){ state.manual.link[d.link] = t.value; changed(); }
+  if (d.focus !== undefined){ focusOn = t.checked; ls("eduMap.focus", focusOn); redraw(); return; }
   if (d.impr !== undefined){ state.impR = Number(t.value); save(); return; }
   if (d.bnonly !== undefined){ state.bnOnly = t.checked; save(); return; }
   if (d.nmon){ const L0 = d.nmon === "rn" ? state.rnames : state.bnames; const x = L0 && L0.items.find(i => i.id === d.id); if (x){ x.on = t.checked; save(); redraw(); } return; }
