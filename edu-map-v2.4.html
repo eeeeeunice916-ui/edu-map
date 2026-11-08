@@ -23,7 +23,38 @@ button,input,select,textarea{font-family:inherit}
 #topbar .pname{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 #saved{font-size:12px;color:var(--ok);background:#eaf6ec;padding:2px 8px;border-radius:10px;white-space:nowrap}
 #main{flex:1;display:flex;min-height:0}
-#rail{width:88px;flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:4px;padding:12px 8px;background:#fbfcfd}
+#rail{width:232px;flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:1px;padding:8px 8px 24px;background:#fbfcfd;overflow:auto}
+#rail.mini{width:58px}
+.tocMini{border:none;background:transparent;color:var(--sub);font-size:12px;text-align:left;padding:4px 8px;cursor:pointer;border-radius:6px}
+.tocMini:hover{background:#eef0f3}
+.tocg{font-size:11.5px;color:var(--sub);font-weight:700;margin:12px 8px 3px;letter-spacing:.02em}
+.toc{display:flex;align-items:flex-start;gap:8px;padding:7px 8px;border:none;background:transparent;border-radius:8px;text-align:left;cursor:pointer;color:var(--ink);font-size:13px;line-height:1.3;width:100%}
+.toc:hover{background:#eef0f3}
+.toc.cur{background:var(--blueSoft);color:var(--blueInk);font-weight:600}
+.toc .sd,.dash .sd{width:18px;height:18px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin-top:1px}
+.sd.na{background:#eef0f3;color:#8a939e}
+.toc small,.dn small{display:block;font-size:11px;color:var(--sub);font-weight:400}
+#rail.mini .tn,#rail.mini .tocg{display:none}
+#rail.mini .toc{justify-content:center}
+.nhead h2{margin:2px 0 0;font-size:19px;line-height:1.3}
+.nhead .crumb{font-size:12px;color:var(--sub)}
+.ntabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid #d6dae0;border-radius:10px;overflow:hidden;margin-top:10px}
+.ntabs button{height:38px;border:none;border-left:1px solid #d6dae0;background:#fff;font-size:14px;cursor:pointer;color:var(--ink)}
+.ntabs button:first-child{border-left:none}
+.ntabs button.on{background:var(--ink);color:#fff;font-weight:600}
+.nfoot{display:flex;justify-content:space-between;gap:8px;margin-top:6px}
+.nfoot .btn{max-width:49%;overflow:hidden;text-overflow:ellipsis}
+#panel.wide{width:540px}
+.dash{display:flex;align-items:center;gap:8px;padding:7px 2px;border-top:1px solid var(--line)}
+.dash .dn{flex:1;min-width:0;border:none;background:none;text-align:left;font-size:13.5px;cursor:pointer;color:var(--ink);padding:0}
+.dash .dn:hover{color:var(--blueInk)}
+.dash .dv{font-size:12px;color:var(--sub);white-space:pre-line;text-align:right;max-width:150px}
+.dash .dbt{display:flex;gap:4px;flex:none}
+.dash .dbt .btn{height:30px;padding:0 9px;font-size:12.5px}
+.fcard{display:flex;flex-direction:column;gap:2px}
+.fcard .ft{font-size:14px}
+.drow{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px;font-size:14px}
+.drow label,.drow>span{display:flex;align-items:center;gap:8px;cursor:pointer}
 .rstep{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:10px;border:none;background:transparent;color:#4a5260;cursor:pointer}
 .rstep .dot{width:28px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#e9ecef;color:#4a5260}
 .rstep .nm{font-size:12px;font-weight:500}
@@ -38,7 +69,10 @@ button,input,select,textarea{font-family:inherit}
 #panel{width:430px;flex:none;border-left:1px solid var(--line);overflow:auto;padding:20px 20px 40px;display:flex;flex-direction:column;gap:14px}
 @media (max-width:1000px){
   #main{flex-direction:column}
-  #rail{width:auto;flex-direction:row;border-right:none;border-bottom:1px solid var(--line);padding:6px;overflow-x:auto}
+  #rail,#rail.mini{width:auto;flex-direction:row;border-right:none;border-bottom:1px solid var(--line);padding:6px;overflow-x:auto}
+  .tocg,.tocMini,.toc small{display:none}
+  .toc{width:auto;flex:none;white-space:nowrap}
+  #panel.wide{width:auto}
   .rstep{flex:1;min-width:64px;padding:6px 4px}
   #mapWrap{flex:none;height:55vh}
   #panel{width:auto;border-left:none;border-top:1px solid var(--line);flex:1}
@@ -212,13 +246,15 @@ body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, b
         </div>
         <div class="results" id="results" style="display:none"></div>
         <div class="chips">
+          <span id="chipTabs" style="display:contents"></span>
           <button class="chip" id="chipLayer">레이어</button>
           <button class="chip" id="chip300">300m 범위</button>
           <button class="chip" id="chipDim">이격거리</button>
           <button class="chip" id="chipSnap">자석</button>
           <button class="chip" id="chipRot">기호 돌리기</button>
           <button class="chip" id="chipLeg">범례</button>
-          <button class="chip" id="chipFit">전체 보기</button>
+          <button class="chip" id="chipFit">전체 맞추기</button>
+          <button class="chip" data-act="drawer">스타일</button>
         </div>
       </div>
       <div id="legend"></div>
@@ -237,7 +273,7 @@ body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, b
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "4.9";
+const APP_VERSION = "5.0";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const KINDS = ["유치원","초등학교","중학교","고등학교","특수학교","기타"];
@@ -1293,7 +1329,7 @@ const EV_DEFS = [
   { id:"ev_traffic", sec:"4.1.2",   name:"교통유발시설과 이격",                short:"교통유발시설", fig:"<교통유발시설 이격 현황도>",           d:{ dims:true } },
   { id:"ev_roads",   sec:"4.1.3.1", name:"집산도로 또는 국지도로에 인접",       short:"인접도로",     fig:"<학교 인접도로 현황도>",               d:{ walks:true, roadFn:true, marks:true } },
   { id:"ev_sw",      sec:"4.1.3.4", name:"보행자전용도로 연계 및 유효 보도폭",   short:"보도·자전거길", fig:"<보도 및 자전거도로 현황도>",          d:{ walks:true } },
-  { id:"ev_ent",     sec:"4.1.3.5", name:"교문과 아파트단지 출입구 거리 최소화", short:"교문~단지출입구", fig:"<교문 및 단지출입구 위치도>",        d:{ ...onlyFac("gateA"), dimsEnt:true } },
+  { id:"ev_ent",     sec:"4.1.3.5", name:"교문과 아파트단지 출입구 거리 최소화", short:"교문~단지출입구", fig:"<교문 및 단지출입구 위치도>",        d:{ ...onlyFac("gateA"), dimsEnt:true, roadFn:true } },
   { id:"ev_safe1",   sec:"4.1.4 ①", name:"통학로 신호기 등 설치 (안전요원·안전시설물)", short:"① 안전시설물", fig:"<공사 중 종합안전대책도>",     d:{ walks:true, safety:true, overlay:true } },
   { id:"ev_safe2",   sec:"4.1.4 ②", name:"공사 중 보행공간 유효폭 2m 이상·연속성 확보", short:"② 보행공간",  fig:"<공사 중 보행공간 및 단면 위치도>", d:{ walks:true, safety:true, safeTypes:["roof"], sections:true } },
   { id:"ev_safe3",   sec:"4.1.4 ③", name:"절대보호구역(50m) 내 공사차량 진출입구 설치 금지", short:"③ 진출입구", fig:"<절대보호구역 및 공사차량 진출입구 위치도>", d:{ zones:true, absOnly:true, safety:true, safeTypes:["entMain","entSub"], dimsCons:true } },
@@ -1305,10 +1341,14 @@ const EV_DEFS = [
 EV_DEFS.forEach(e => e.disp = { ...EV_BASE, ...e.d });
 const presetOf = k => PRESETS[k] || EV_DEFS.find(e => e.id === k) || PRESETS.loc;
 // 3단계: 열린 위치 항목에 필요한 것만 / 1·2단계: 사업지·학교 위주
-const ITEM_EV = { park:"ev_park", cult:"ev_cult", walk:"ev_walk", traffic:"ev_traffic", roads:"ev_roads", sw:"ev_sw", ent:"ev_ent", safe:"ev_safe1", safe2:"ev_safe2", safe3:"ev_safe3", safe4:"ev_safe4", safe5:"ev_safe5", haz:"ev_haz" };
+const ITEM_EV = { park:"ev_park", cult:"ev_cult", walk:"ev_walk", traffic:"ev_traffic", roads:"ev_roads", sw:"ev_sw", ent:"ev_ent", safe:"ev_safe1", safe2:"ev_safe2", safe3:"ev_safe3", safe4:"ev_safe4", safe5:"ev_safe5", haz:"ev_haz", photo:"ev_photo" };
+// 목차 항목 → 그림 / 그림 → 목차 항목
+const NAV_EV = k => k === "school" ? "ev_target" : k === "safeEnt" ? "ev_safe3" : k === "safeRoute" ? "ev_safe4" : ITEM_EV[k] || null;
+const EV_NAV = Object.fromEntries([["ev_target", "school"], ...Object.entries(ITEM_EV).map(([k, v]) => [v, k])]);
 let focusOn = ls("eduMap.focus") !== false;
 function dispNow(){
-  if (step === 4) return { ...presetOf(state.print.preset).disp, ...(state.print.disp || {}) };
+  if (step === 4){ const id = (state.print.preset || "").startsWith("ev_") ? state.print.preset : null, it = id && state.print.items && state.print.items[id];
+    return { ...presetOf(state.print.preset).disp, ...((it && it.disp) || {}), ...(state.print.disp || {}) }; }
   if (focusOn && step === 3 && openItem === "safeEnt") return { ...EV_BASE, safety:true, safeTypes:["entMain","entSub","panel"], overlay:true };
   if (focusOn && step === 3 && openItem === "safeRoute") return { ...EV_BASE, safety:true, safeTypes:["entMain","entSub","inRoute","outRoute"], routes:true, conflict:true, overlay:true };
   if (focusOn && step === 3 && openItem && ITEM_EV[openItem]){ const e = EV_DEFS.find(x => x.id === ITEM_EV[openItem]); if (e) return { ...e.disp, overlay:true }; }
@@ -1656,7 +1696,7 @@ async function drawNear(){
 let autoRes = [], autoType = "";
 async function autoFind(type){
   const sch = state.schools.filter(s => s.parcels.length || s.gate);
-  if (!sch.length){ toast("학교 교지나 교문을 먼저 넣어 주세요 (2단계)"); return; }
+  if (!sch.length){ toast("학교 교지나 교문을 먼저 넣어 주세요 (‘대상학교’)"); return; }
   const R = type === "park" ? 500 : 800;
   const buf = bufferOf(sch.flatMap(s => s.parcels.length ? s.parcels.map(p=>p.geom) : [turf.point(s.gate).geometry]), R);
   toast("주변 시설 찾는 중…", 15000);
@@ -1677,7 +1717,7 @@ async function autoFind(type){
 let schoolCands = [];
 async function findSchools(){
   const pj = state.project.map(p => p.geom);
-  if (!pj.length){ toast("1단계에서 사업지를 먼저 골라 주세요"); return; }
+  if (!pj.length){ toast("‘사업지’에서 사업지를 먼저 골라 주세요"); return; }
   const buf = bufferOf(pj, 300);
   toast("주변 학교 찾는 중…", 15000);
   let fs;
@@ -1897,12 +1937,68 @@ function stepDone(n){
   if (n === 3) return state.schools.length > 0 && checkItems().every(it => it.ok);
   return false;
 }
+/* ===== v5 목차 (보고서 목차 순서) ===== */
+const NAV = [
+  { g:"", items:["home"] },
+  { g:"기본 정보", items:["site", "school", "data"] },
+  { g:"4.1 위치", items:["park", "cult", "walk", "traffic", "roads", "sw", "ent", "photo"] },
+  { g:"4.1.4 공사 중 통학안전", items:["safeEnt", "safeRoute", "safe", "safe2", "safe3", "safe4", "safe5"] },
+  { g:"4.5 보호구역", items:["haz"] },
+  { g:"마무리", items:["export"] }
+];
+const NAV_ORDER = NAV.flatMap(g => g.items);
+const navGroup = k => (NAV.find(g => g.items.includes(k)) || {}).g || "";
+const TOC_N = { home:"한눈에 보기", site:"사업지", school:"대상학교 · 보호구역", data:"자료 불러오기", park:"공원 · 녹지축 연계", cult:"도서관 · 문화 · 체육시설", walk:"통학 범위", traffic:"교통유발시설 이격", roads:"인접도로 (도로기능)", sw:"보도 · 자전거길", ent:"교문 ~ 단지출입구", photo:"현장사진", safeEnt:"공사차량 진출입구", safeRoute:"공사차량 이동경로", safe:"① 신호기 · 안전시설", safe2:"② 보행공간 2m", safe3:"③ 절대보호구역 진출입", safe4:"④ 등하교 진출입 제한", safe5:"⑤ 타워크레인", haz:"위험 · 유해시설", export:"표 · 문장 · 내보내기" };
+let nav = (() => { const v = ls("eduMap.nav"); return v && NAV_ORDER.includes(v.k) ? v : { k:"site", tab:"in" }; })();
+let drawer = false, tocMini = ls("eduMap.tocMini") === true;
+function navInfo(k, items){
+  if (k === "home" || k === "export") return { n:TOC_N[k], sec:"", st:"na", val:"" };
+  if (k === "site") return { n:TOC_N.site, sec:"사업 개요", st:state.project.length ? "ok" : "todo", val:state.project.length ? `${state.project.length}필지 · 약 ${fmt(areaOf(state.project.map(p => p.geom)))}㎡` : "-" };
+  if (k === "school") return { n:TOC_N.school, sec:"3.1", st:stepDone(2) ? "ok" : "todo", val:state.schools.map(sName).join(", ") || "-" };
+  const it = (items || checkItems()).find(i => i.id === k);
+  if (!it) return { n:TOC_N[k] || k, sec:"", st:"na", val:"" };
+  return { n:TOC_N[k] || it.name, full:it.name, sec:it.sec, how:it.how, val:it.val, st:(k === "data" || k === "photo") ? (it.val && it.val !== "-" ? "ok" : "na") : it.ok ? "ok" : "todo" };
+}
+const secShort = (sec, n) => /^[①-⑤]/.test(String(n || "")) ? String(sec || "").replace(/\s*[①-⑤]$/, "") : sec;
+const sdHTML = st => `<span class="sd ${st}">${st === "ok" ? "✓" : st === "todo" ? "!" : "·"}</span>`;
 function renderRail(){
-  $("#rail").innerHTML = STEPS.map((n, i) => {
-    const k = i + 1, cur = k === step, done = !cur && stepDone(k);
-    return `<button class="rstep ${cur ? "cur" : ""} ${done ? "done" : ""}" data-step="${k}" aria-current="${cur ? "step" : "false"}"><span class="dot">${done ? "✓" : k}</span><span class="nm">${n}</span></button>`;
-  }).join("");
+  const items = checkItems(), R = $("#rail");
+  R.classList.toggle("mini", tocMini);
+  R.innerHTML = `<button class="tocMini" data-act="tocMini" title="${tocMini ? "목차 펼치기" : "목차 접기"}" aria-label="${tocMini ? "목차 펼치기" : "목차 접기"}">${tocMini ? "»" : "« 목차 접기"}</button>` + NAV.map(g => `${g.g ? `<div class="tocg">${g.g}</div>` : ""}${g.items.map(k => { const I = navInfo(k, items);
+    return `<button class="toc ${nav.k === k ? "cur" : ""}" data-nav="${k}" aria-current="${nav.k === k ? "page" : "false"}" title="${esc((I.full || I.n) + (I.val && I.val !== "-" ? "\n" + I.val : ""))}">${k === "home" ? `<span class="sd na">⌂</span>` : k === "export" ? `<span class="sd na">⇩</span>` : sdHTML(I.st)}<span class="tn">${I.sec && !/^(사업 개요|자료|현장)$/.test(I.sec) ? `<small>${esc(secShort(I.sec, I.n))}</small>` : ""}${esc(I.n)}</span></button>`; }).join("")}`).join("");
   $("#tbName").textContent = state.name;
+  const ev = NAV_EV(nav.k), ct = $("#chipTabs");
+  if (ct) ct.innerHTML = ev && !drawer ? [["in","넣기"],["fig","그림"],["txt","표·문장"]].map(([t, n]) => `<button class="chip ${nav.tab === t ? "on" : ""}" data-ntab="${t}">${n}</button>`).join("") : "";
+}
+// 목차 이동: k = 항목, tab = in(넣기) · fig(그림) · txt(표·문장)
+function navGo(k, tab){
+  if (!NAV_ORDER.includes(k)) k = "home";
+  const ev = NAV_EV(k);
+  tab = tab || (k === nav.k ? nav.tab : nav.tab === "fig" && ev ? "fig" : "in");
+  if (!ev && tab !== "in") tab = "in";
+  nav = { k, tab }; ls("eduMap.nav", nav); drawer = false;
+  let n;
+  if (k === "home") n = 0;
+  else if (k === "export") n = 5;
+  else if (tab === "fig"){ applyEv(ev); n = 4; }
+  else if (k === "site") n = 1;
+  else if (k === "school") n = 2;
+  else { openItem = k; n = 3; }
+  goStep(n);
+  if (n === 4){ applyFigView(); redraw(); setTimeout(() => { applyFigView(); redraw(); }, 80); }
+}
+function navHead(){
+  const k = nav.k, I = navInfo(k), ev = NAV_EV(k), g = navGroup(k);
+  const needSchool = /^(park|cult|walk|traffic|roads|sw|ent|safe\d?|haz)$/.test(k) && !state.schools.some(s => hasShape(schoolShape(s)));
+  return `<div class="nhead">${g || I.sec ? `<div class="crumb">${esc([g, I.sec].filter(Boolean).join(" · "))}</div>` : ""}
+    <div class="row" style="flex-wrap:nowrap;align-items:flex-start;gap:8px"><h2 style="flex:1">${esc(I.full || I.n)}</h2>${k !== "home" && k !== "export" ? `<span class="badge ${I.st === "ok" ? "out" : I.st === "todo" ? "abs" : ""}" style="margin-top:4px">${I.st === "ok" ? "완료" : I.st === "todo" ? "할 일" : "선택"}</span>` : ""}</div>
+    ${I.how ? `<div class="muted" style="margin-top:2px">${esc(I.how)}</div>` : ""}
+    ${ev ? `<div class="ntabs" role="tablist">${[["in","넣기"],["fig","그림"],["txt","표 · 문장"]].map(([t, n]) => `<button role="tab" aria-selected="${nav.tab === t}" class="${nav.tab === t ? "on" : ""}" data-ntab="${t}">${n}</button>`).join("")}</div>` : ""}
+    ${needSchool ? `<div class="card" style="background:#fff9db;border-color:#ffe066;margin-top:10px;font-size:13px">대상학교의 교지나 교문을 먼저 넣어 주세요. <button class="btn sm" data-nav="school" data-ntab="in" style="margin-left:6px">대상학교로 가기</button></div>` : ""}</div>`;
+}
+function navFoot(){
+  const i = NAV_ORDER.indexOf(nav.k), p = NAV_ORDER[i - 1], n = NAV_ORDER[i + 1];
+  return `<div class="nfoot">${p ? `<button class="btn" data-nav="${p}">← ${esc(TOC_N[p])}</button>` : "<span></span>"}${n ? `<button class="btn pri" data-nav="${n}">${esc(TOC_N[n])} →</button>` : ""}</div>`;
 }
 function goStep(n){
   step = n; ls("eduMap.step", n);
@@ -1941,8 +2037,8 @@ function parcelRow(p, kind, oid){
   return `<div class="parcel"><div class="t">${esc(p.addr)}<br><span class="muted">${p.jimok ? "지목 " + esc(p.jimok) + " · " : ""}${esc(p.zone || "")}${p.jiga ? ` · ${fmt(p.jiga)}원/㎡` : ""} · 약 ${fmt(areaOf([p.geom]))}㎡</span></div>
   <button class="x" data-del="${kind}" data-pnu="${esc(p.pnu)}" ${oid ? `data-oid="${oid}"` : ""} aria-label="빼기">✕</button></div>`;
 }
-const head = (n, t, sub) => `<div class="stepHead"><div class="no">${n}단계${sub ? " · " + sub : ""}</div><h2>${t}</h2></div>`;
-const nextBtn = (n, label) => n <= 5 ? `<button class="btn pri full next" data-step="${n}" style="height:46px;font-size:15px">${label}</button>` : "";
+const head = () => "";      // v5: 제목은 목차 머리(navHead)에서
+const nextBtn = () => "";
 function backupBanner(){
   const days = (Date.now() - (state.lastBackup || 0)) / 86400000, has = state.project.length || state.schools.length;
   if (!has || days < 3) return "";
@@ -1950,8 +2046,131 @@ function backupBanner(){
 }
 function renderPanel(){
   renderRail();
-  const fn = [null, panel1, panel2, panel3, panel4, panel5][step];
-  $("#panel").innerHTML = (step === 1 || step === 5 ? backupBanner() : "") + fn();
+  const Pn = $("#panel"), k = nav.k;
+  Pn.classList.toggle("wide", k === "home" || k === "export");
+  if (drawer){ Pn.innerHTML = styleDrawer(); return; }
+  let body;
+  if (k === "home") body = dashboard();
+  else if (k === "export") body = exportCenter();
+  else if (nav.tab === "fig") body = figPanel();
+  else if (nav.tab === "txt") body = txtPanel(NAV_EV(k));
+  else if (k === "site") body = panel1();
+  else if (k === "school") body = panel2();
+  else { const it = checkItems().find(i => i.id === k); body = it ? it.body() : ""; }
+  Pn.innerHTML = navHead() + (k === "home" || k === "site" || k === "export" ? backupBanner() : "") + body + (k === "home" ? "" : navFoot());
+}
+/* ===== 한눈에 보기 ===== */
+function dashboard(){
+  const o = overview(), items = checkItems(), rows = state.schools.map(schoolRow);
+  const todo = NAV_ORDER.filter(k => !["home","export","data","photo"].includes(k)), I = Object.fromEntries(NAV_ORDER.map(k => [k, navInfo(k, items)]));
+  const done = todo.filter(k => I[k].st === "ok").length, next = todo.find(k => I[k].st === "todo");
+  const X = rows.length ? evalItems(rows) : [], nFig = X.filter(x => x.has).length;
+  return `<div class="card dsum">
+      <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><b style="font-size:15px">${esc(state.name)}</b><button class="btn sm" data-nav="site">고치기</button></div>
+      <div class="sumbox" style="margin-top:8px"><div class="k">소재지</div><div>${o ? esc(o.addr) : `<span class="muted">사업지를 넣어 주세요</span>`}</div>
+        <div class="k">사업면적</div><div>${o ? `약 ${fmt(o.area)}㎡ (${o.n}필지)` : "-"}</div>
+        <div class="k">용도지역</div><div>${o ? esc(o.zone) : "-"}</div>
+        <div class="k">대상학교</div><div>${rows.length ? rows.map(r => `${esc(r.s.name)} <span class="muted">${r.d === 0 ? "연접" : r.d != null ? "약 " + fmt(r.d) + "m" : ""}</span>`).join("<br>") : `<span class="muted">-</span>`}</div></div></div>
+    <div class="card"><div class="row" style="justify-content:space-between"><b style="font-size:14px">진행</b><span class="muted">${done} / ${todo.length} 완료 · 그림 ${nFig}장 준비</span></div>
+      <div class="prog" style="margin-top:8px"><i style="width:${Math.round(done / todo.length * 100)}%"></i></div>
+      ${next ? `<button class="btn pri full" data-nav="${next}" data-ntab="in" style="margin-top:10px;height:44px">다음 할 일: ${esc(I[next].full || I[next].n)} →</button>` : `<button class="btn pri full" data-nav="export" style="margin-top:10px;height:44px">모두 넣었어요 · 내보내기 →</button>`}</div>
+    ${NAV.filter(g => g.g).map(g => { const ks = g.items.filter(k => k !== "export"); if (!ks.length) return "";
+      return `<div class="dgrp"><div class="tocg" style="margin:4px 0 4px">${g.g}</div>${ks.map(k => { const x = I[k], ev = NAV_EV(k);
+        return `<div class="dash">${sdHTML(x.st)}<button class="dn" data-nav="${k}" data-ntab="in"><small>${esc(x.sec || "")}</small>${esc(x.full || x.n)}</button><span class="dv">${esc(x.val && x.val !== "-" ? x.val : x.st === "todo" ? "입력 필요" : "")}</span>
+          <span class="dbt"><button class="btn sm" data-nav="${k}" data-ntab="in">넣기</button>${ev ? `<button class="btn sm" data-nav="${k}" data-ntab="fig">그림</button>` : ""}</span></div>`; }).join("")}</div>`; }).join("")}
+    <button class="btn full" data-nav="export" style="height:44px">표 · 문장 · PPT 내보내기 →</button>`;
+}
+/* ===== 그림 탭 ===== */
+const DISP_LBL = { project:"사업지", site:"교지 · 학교 이름", zones:"절대 · 상대보호구역", absOnly:"절대보호구역만", near:"필지 경계", roadFn:"도로 기능 색칠 (주간선·보조간선·집산·국지)", rnames:"도로명", bnames:"건물 · 단지 이름", dims:"거리: 사업지 ~ 교지", dimsFac:"거리: 교지 ~ 공원·문화시설", dimsEnt:"거리: 교문 ~ 단지출입구", dimsCons:"거리: 교문 ~ 공사차량 출입구", facs:"주변 시설", routes:"통학로", walks:"보도 · 자전거길", marks:"횡단보도", pois:"버스정류장 · 어린이보호구역 · CCTV", szone:"통학구역(학구)", szCenter:"통학권 중심 거리", r300:"교지경계 300m 범위", safety:"공사 중 안전대책", sections:"단면 위치선", conflict:"통학로 · 공사차량 상충", overlay:"붙인 도면 · 배치도", photos:"현장사진 번호" };
+function dispAvail(k){
+  if (k === "roadFn") return state.roadFn && state.roadFn.feats.length ? true : `<button class="btn sm" data-act="loadRoadFn" ${rfnBusy ? "disabled" : ""}>${rfnBusy ? "불러오는 중…" : "도시계획도로 불러와 색칠"}</button>`;
+  if (k === "rnames") return state.rnames && state.rnames.items.length ? true : `<button class="btn sm" data-nav="data" data-ntab="in">자료 불러오기</button>`;
+  if (k === "bnames") return state.bnames && state.bnames.items.length ? true : `<button class="btn sm" data-nav="data" data-ntab="in">자료 불러오기</button>`;
+  if (k === "marks") return state.marks.length ? true : `<button class="btn sm" data-nav="data" data-ntab="in">자료 불러오기</button>`;
+  if (k === "pois") return state.pois.length ? true : `<button class="btn sm" data-nav="data" data-ntab="in">자료 불러오기</button>`;
+  if (k === "szone" || k === "szCenter") return state.szones.length ? true : `<button class="btn sm" data-nav="data" data-ntab="in">학구도 넣기</button>`;
+  if (k === "overlay") return state.overlays.length ? true : `<button class="btn sm" data-nav="site" data-ntab="in">도면 붙이기</button>`;
+  if (k === "photos") return state.photos.length ? true : `<span class="muted">사진 없음</span>`;
+  return true;
+}
+function setDisp(o){
+  const id = curEv();
+  if (id){ const it = evSet(id); it.disp = { ...(it.disp || {}), ...o }; }
+  else state.print.disp = { ...(state.print.disp || {}), ...o };
+  save(); redraw(); renderPanel();
+}
+function figPanel(){
+  const pr = state.print, d = dispNow(), id = curEv(), e = EV_DEFS.find(x => x.id === id), base = e ? e.disp : presetOf(pr.preset).disp;
+  const it = id ? ((pr.items || {})[id] || {}) : {}, changedDisp = !!(it.disp && Object.keys(it.disp).length);
+  const row = k => { const a = dispAvail(k); return `<div class="drow"><label><input type="checkbox" data-disp="${k}" ${d[k] ? "checked" : ""} ${a === true ? "" : "disabled"}>${esc(DISP_LBL[k])}</label>${a === true ? "" : a}</div>`
+    + (k === "facs" && d.facs ? `<div style="padding-left:24px">${Object.entries(FAC_TYPES).filter(([fk]) => state.facs.some(f => f.type === fk)).map(([fk, t]) => `<label class="drow" style="font-size:13px"><span><input type="checkbox" data-pfac="${fk}" ${facShown(d, fk) ? "checked" : ""}>${swatch("fac_" + fk, 16, 10)} ${t.name}</span></label>`).join("") || `<span class="muted">넣은 시설이 없어요</span>`}</div>` : "")
+    + (k === "near" && d.near ? `<div class="row" style="padding-left:24px;gap:6px"><select class="inp sm" style="width:auto" data-near-r aria-label="필지 경계 반경">${[100,200,300,500].map(r => `<option value="${r}" ${ly.nearR === r ? "selected" : ""}>반경 ${r}m</option>`).join("")}</select><button class="btn sm" data-act="near">${nearFeats.length ? "다시 불러오기" : "불러오기"}</button></div>` : ""); };
+  const keys = Object.keys(DISP_LBL), mine = keys.filter(k => base[k] === true), rest = keys.filter(k => !mine.includes(k) && k !== "absOnly");
+  return `<div class="card fcard"><b class="ft">이 그림에 나오는 것</b>${mine.map(row).join("")}
+      <details style="margin-top:6px"><summary class="muted" style="cursor:pointer">더 넣을 수 있는 것 (${rest.length})</summary>${rest.map(row).join("")}</details>
+      ${changedDisp ? `<button class="btn sm" data-act="dispReset" style="margin-top:6px">이 그림 표시 원래대로</button>` : ""}
+      <div class="muted" style="margin-top:4px">여기서 켜고 끈 것은 이 그림에만 적용되고 PPT에도 그대로 들어가요.</div></div>
+    ${state.safety.phases && phList().length && (base.safety || d.safety) ? `<div class="row" style="gap:8px"><span class="lab" style="margin:0">공사 공정</span><select class="inp sm" style="width:auto" data-pphase aria-label="공정">${[["all","전체"], ...phList().map(p => [p.id, p.name])].map(([v,n]) => `<option value="${v}" ${(pr.phase || "all") === v ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></div>` : ""}
+    <div><label class="lab" for="ptitle">그림 제목</label><input class="inp" id="ptitle" data-ptitle value="${esc(pr.title)}"></div>
+    <div class="card fcard"><b class="ft">위치 · 축척 · 틀</b>
+      <div class="seg" style="margin-top:6px">${[["same","모든 그림 같게"],["fit","내용에 맞추기"]].map(([k, n]) => `<button class="${(pr.viewMode || "same") === k && !(pr.view && pr.view.z) && !(it.view && it.view.z) ? "on" : ""}" data-viewmode="${k}">${n}</button>`).join("")}</div>
+      <div class="row" style="gap:6px;margin-top:6px"><button class="btn sm ${pr.view && pr.view.z ? "on" : ""}" data-act="lockView">${pr.view && pr.view.z ? "모든 그림 화면 다시 저장" : "지금 화면을 모든 그림에"}</button>${pr.view && pr.view.z ? `<button class="btn sm" data-act="unlockView">풀기</button>` : ""}</div>
+      ${id ? `<div class="row" style="gap:6px;margin-top:6px"><button class="btn sm ${it.view && it.view.z ? "on" : ""}" data-act="lockItemView">${it.view && it.view.z ? "이 그림 위치 다시 고정" : "지금 화면을 이 그림만"}</button>${it.view && it.view.z ? `<button class="btn sm" data-act="unlockItemView">고정 풀기</button>` : ""}<span class="muted">1:${fmt(scaleDen())}</span></div>
+      <div class="lab" style="margin-top:8px">이 그림 틀</div><div class="seg">${[["", "기본 따름"],["land","가로"],["port","세로"],["custom","직접"]].map(([k,n]) => `<button class="${(it.paper || "") === k ? "on" : ""}" data-ipaper="${k}">${n}</button>`).join("")}</div>
+      ${it.paper === "custom" ? `<div class="row" style="gap:6px;margin-top:6px;font-size:13px"><span>가로</span><input class="inp sm" style="width:80px" type="number" step="0.05" min="20" data-pw="item" value="${it.pw || 297}">mm<span>세로</span><input class="inp sm" style="width:80px" type="number" step="0.05" min="20" data-pph="item" value="${it.ph || 210}">mm</div>` : ""}` : ""}
+      <div class="muted" style="margin-top:4px">지도를 끌고 확대해 틀 안에 맞춰요. 기본은 사업지와 학교가 가운데 오게 모든 그림을 같은 축척으로 맞춰요.</div></div>
+    <button class="btn full" data-act="drawer" style="height:42px">🎨 스타일 바꾸기 (색 · 글자 · 범례 · 바탕)</button>
+    <div class="grid2"><button class="btn pri" data-export="png" style="height:44px">이 그림 PNG</button><button class="btn" data-export="svg" style="height:44px">SVG</button></div>
+    <button class="btn full" data-nav="export" style="height:40px">PPT로 모든 그림 내보내기 →</button>
+    <details><summary class="muted" style="cursor:pointer">평가항목 말고 다른 그림 종류</summary><div class="grid2" style="margin-top:6px">${Object.entries(PRESETS).map(([k,p]) => `<button class="btn sm ${pr.preset === k ? "on" : ""}" data-preset="${k}">${p.name}</button>`).join("")}</div></details>`;
+}
+/* ===== 스타일 서랍 ===== */
+function styleDrawer(){
+  const pr = state.print;
+  return `<div class="nhead"><button class="btn sm" data-act="drawerClose">← 돌아가기</button><h2 style="margin-top:8px">스타일</h2><div class="muted">모든 그림에 같이 적용돼요. 바꾸면 왼쪽 지도에 바로 보여요.</div></div>
+  <div class="card fcard"><b class="ft">바탕</b><div class="seg" style="margin-top:6px">${[["none","흰 바탕"],["base","일반"],["gray","회색"],["sat","위성"]].map(([k,n]) => `<button class="${ly.base === k ? "on" : ""}" data-base="${k}">${n}</button>`).join("")}</div>
+    <label class="drow"><span><input type="checkbox" data-withbase ${ly.withBase !== false ? "checked" : ""}>저장할 때 바탕지도도 같이</span></label></div>
+  <div class="card fcard"><b class="ft">색 · 선 · 해치</b><button class="btn sm" data-act="openStyle" style="margin-top:6px">사업지 · 교지 · 보호구역 등 모양 바꾸기</button></div>
+  <div class="card fcard"><b class="ft">범례</b><div class="seg" style="margin-top:6px">${Object.entries(LEG_STYLES).map(([k, n]) => `<button class="${(pr.leg || {}).style === k || (!(pr.leg || {}).style && k === "tab") ? "on" : ""}" data-legsty="${k}">${n}</button>`).join("")}</div>
+    <div class="row" style="margin-top:6px;gap:6px;font-size:13px"><select class="inp sm" style="width:auto" data-legmode aria-label="범례 배치 기준"><option value="col" ${((pr.leg || {}).mode || "col") === "col" ? "selected" : ""}>열 수로 맞추기</option><option value="row" ${(pr.leg || {}).mode === "row" ? "selected" : ""}>행 수로 맞추기</option></select>
+      <button class="btn sm" data-legn="-1" aria-label="줄이기">−</button><b style="min-width:44px;text-align:center">${(pr.leg || {}).n || 1}${((pr.leg || {}).mode || "col") === "col" ? "열" : "행"}</b><button class="btn sm" data-legn="1" aria-label="늘리기">+</button></div>
+    <div class="muted" style="margin-top:2px">범례는 오른쪽 아래, 방위표는 왼쪽 위, 축척은 왼쪽 아래.</div></div>
+  <div class="card fcard" style="font-size:13px"><b class="ft">글자 크기 (0.05 단위)</b>
+    ${[["lbl","지도 글씨", ui.lbl], ["rn","도로명", pr.rnSize || ui.lbl], ["bn","건물명", pr.bnSize || ui.lbl - 1], ["leg","범례 글씨", pr.legFs || 12], ["title","제목", pr.titleFs || 14]].map(([k, n, v]) => `<div class="row" style="gap:6px;margin-top:6px"><span style="min-width:74px">${n}</span><button class="btn sm" data-fsz="${k}" data-d="-0.05" aria-label="${n} 작게">−</button><input class="inp sm" style="width:84px;text-align:center" type="number" step="0.05" min="5" max="40" data-fszin="${k}" value="${(+v).toFixed(2)}" aria-label="${n} 크기"><button class="btn sm" data-fsz="${k}" data-d="0.05" aria-label="${n} 크게">+</button></div>`).join("")}
+    <label class="drow" style="margin-top:6px"><span><input type="checkbox" data-declutter ${pr.declutter !== false ? "checked" : ""}>글자끼리 겹치면 자동으로 띄우기</span></label></div>
+  <div class="card fcard" style="font-size:13px"><b class="ft">안전요원 · 아이콘</b>
+    <div class="row" style="gap:6px;margin-top:6px"><span style="min-width:74px">모양</span><div class="seg" style="flex:1">${[["bubble","말풍선"],["box","박스 + 선"]].map(([k, n]) => `<button class="${(state.safety.postStyle || "bubble") === k ? "on" : ""}" data-poststyle="${k}">${n}</button>`).join("")}</div></div>
+    <div class="row" style="gap:6px;margin-top:6px"><span style="min-width:74px">한 줄에</span><button class="btn sm" data-bubcols="-1" aria-label="줄이기">−</button><b style="min-width:30px;text-align:center">${state.safety.bubbleCols || 3}개</b><button class="btn sm" data-bubcols="1" aria-label="늘리기">+</button></div></div>
+  <div class="card fcard" style="font-size:13px"><label class="drow"><span><input type="checkbox" data-pbox="on" ${(pr.pbox || {}).on ? "checked" : ""}><b>사업명 상자</b></span></label>
+    ${(pr.pbox || {}).on ? `<div class="grid2" style="margin-top:6px"><input class="inp sm" data-pbox="text" placeholder="${esc(state.name)}" value="${esc((pr.pbox || {}).text || "")}" aria-label="사업명 상자 글"><input class="inp sm" data-pbox="period" placeholder="2028.08~2032.08" value="${esc((pr.pbox || {}).period || "")}" aria-label="사업 기간"></div><div class="muted">지도에서 상자를 끌어 옮길 수 있어요.</div>` : ""}</div>
+  <div class="card fcard"><b class="ft">모든 그림 기본 틀</b><div class="seg" style="margin-top:6px">${[["land","A4 가로"],["port","A4 세로"],["custom","직접"]].map(([k,n]) => `<button class="${(pr.paper || "land") === k ? "on" : ""}" data-paper="${k}">${n}</button>`).join("")}</div>
+    ${pr.paper === "custom" ? `<div class="row" style="gap:6px;margin-top:6px;font-size:13px"><span>가로</span><input class="inp sm" style="width:80px" type="number" step="0.05" min="20" data-pw="all" value="${pr.pw || 297}">mm<span>세로</span><input class="inp sm" style="width:80px" type="number" step="0.05" min="20" data-pph="all" value="${pr.ph || 210}">mm</div>` : ""}</div>
+  <div class="card fcard" style="font-size:13px"><b class="ft">회사 스타일</b><div class="row" style="gap:6px;margin-top:6px"><select class="inp sm" style="flex:1" data-spsel aria-label="저장된 스타일">${Object.keys(stylePresets()).map(k => `<option>${esc(k)}</option>`).join("") || `<option value="">저장된 스타일 없음</option>`}</select><button class="btn sm" data-act="spApply">적용</button><button class="btn sm" data-act="spDel">지우기</button></div>
+    <div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-act="spSave">지금 모양을 스타일로 저장</button><button class="btn sm" data-act="spExport">파일로</button><button class="btn sm" data-act="spImport">파일에서</button></div>
+    <div class="muted" style="margin-top:4px">색 · 선 · 아이콘 · 범례 · 글자 크기 · 말풍선 설정을 한 번에 저장해 다른 사업에 적용해요.</div></div>
+  <label class="drow" style="font-size:13px"><span><input type="checkbox" data-focus ${focusOn ? "checked" : ""}>‘넣기’ 화면에서 그 항목에 필요한 것만 지도에 보기</span></label>`;
+}
+/* ===== 표 · 문장 탭 ===== */
+function txtPanel(evId){
+  const rows = state.schools.map(schoolRow);
+  if (!rows.length) return `<div class="card muted">대상학교를 넣으면 표와 문장이 만들어져요.</div>`;
+  const x = evalItems(rows).find(i => i.e.id === evId);
+  if (!x) return `<div class="card muted">이 항목은 표가 없어요.</div>`;
+  return `<div class="muted">${esc(x.e.fig)}</div>${x.has ? `${x.body.length ? tblHTML(x.head, x.body) : ""}${x.text ? `<div class="sent">${esc(x.text)}</div>` : ""}
+    <div class="grid2">${x.body.length ? `<button class="btn pri" data-evcopy="${x.e.id}" data-k="tbl">표 복사 (한글·엑셀)</button>` : ""}${x.text ? `<button class="btn" data-evcopy="${x.e.id}" data-k="txt">문장 복사</button>` : ""}</div>` : `<div class="card muted">아직 넣은 자료가 없어요. ‘넣기’ 탭에서 넣어 주세요. 비어 있으면 PPT에서 빠져요.</div>`}`;
+}
+/* ===== 내보내기 ===== */
+function exportCenter(){
+  const rows = state.schools.map(schoolRow), X = rows.length ? evalItems(rows) : [], skip = state.print.skip || [];
+  const nOn = X.filter(x => x.has && !skip.includes(x.e.id)).length;
+  return `<div class="card fcard"><div class="row" style="justify-content:space-between"><b class="ft">PPT에 넣을 그림</b><span class="muted">${nOn}개 항목</span></div>
+    ${X.map(x => `<div class="drow"><label style="${x.has ? "" : "opacity:.55"}"><input type="checkbox" data-pptskip="${x.e.id}" ${x.has && !skip.includes(x.e.id) ? "checked" : ""} ${x.has ? "" : "disabled"}><span class="muted" style="min-width:58px">${esc(secShort(x.e.sec, x.e.short))}</span>${esc(x.e.short)}</label>${x.has ? `<button class="btn sm" data-nav="${EV_NAV[x.e.id] || "home"}" data-ntab="fig">그림</button>` : `<span class="muted">비어 있음</span>`}</div>`).join("") || `<div class="muted">대상학교를 넣으면 목록이 생겨요.</div>`}
+    <div class="row" style="gap:6px;font-size:13px;margin-top:8px"><span>PPT 크기</span><div class="seg" style="flex:1">${[["wide","16:9 와이드"],["a4","A4 가로"]].map(([k, n]) => `<button class="${(state.print.pptSize || "wide") === k ? "on" : ""}" data-pptsize="${k}">${n}</button>`).join("")}</div></div>
+    <button class="btn pri full" data-act="exportPPT" style="height:46px;margin-top:8px;font-size:15px">PPT로 내보내기 (도형 편집 · 그룹)</button>
+    <div class="muted" style="margin-top:4px">바탕지도는 그림으로, 선·글씨·기호는 하나씩 고칠 수 있는 도형으로 들어가요.${ly.withBase !== false && tileCORS !== true ? " ‘이 탭 공유’ 창이 뜨면 이 탭을 고르고 [공유]를 눌러 주세요." : ""}</div></div>
+  <div class="lab" style="margin-top:4px">결과 표 · 문장</div>
+  ${panel5()}
+  <div class="card fcard" style="font-size:13px"><b class="ft">작업 백업</b><div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-act="pexport">백업 파일 저장</button><button class="btn sm" id="btnProjects2" data-act="projects">사업 목록</button></div></div>`;
 }
 
 /* 1단계 */
@@ -2098,7 +2317,7 @@ function checkItems(){
       body: () => perSchool(S, r => `<label class="lab" style="margin:0 0 4px">보행자도로 연계</label><select class="inp sm" data-link="${r.s.id}" aria-label="연계 여부"><option value="">선택</option>${["미연계","일부 연계","연계"].map(v => `<option ${state.manual.link[r.s.id]===v?"selected":""}>${v}</option>`).join("")}</select>`)
         + state.walks.map(walkCard).join("") + `<div class="row"><button class="btn sm dashed" data-act="addWalk">+ 보도 그리기</button><button class="btn sm" data-vec="bike">자전거길 자동 그리기</button></div>` },
     { id:"ent", sec:"4.1.3.5", name:"교문과 단지출입구 거리", how:"단지 출입구 점 찍기", ok: all(r => r.ent), val: v2(r => r.ent ? `${fmt(r.ent.d)}m` : "-"),
-      body: () => perSchool(S, r => r.ent ? `${esc(r.ent.gateName)} ~ ‘${esc(r.ent.f.name)}’<br>약 <b>${fmt(r.ent.d)}m</b>` : `<span class="muted">${r.s.gate ? "단지 출입구를 찍어 주세요" : "2단계에서 교문을 찍으면 더 정확해요"}</span>`) + `<div class="muted">사업지 출입구(주·부·보행자)는 1단계에서, 학교 학생출입구는 2단계에서 찍어요. 사람이 다니는 출입구끼리 가장 가까운 거리를 재요.</div>` + facBlock("gateA", "단지 출입구 따로 찍기") },
+      body: () => perSchool(S, r => r.ent ? `${esc(r.ent.gateName)} ~ ‘${esc(r.ent.f.name)}’<br>약 <b>${fmt(r.ent.d)}m</b>` : `<span class="muted">${r.s.gate ? "단지 출입구를 찍어 주세요" : "‘대상학교’에서 교문을 찍으면 더 정확해요"}</span>`) + `<div class="muted">사업지 출입구(주·부·보행자)는 ‘사업지’에서, 학교 학생출입구는 ‘대상학교’에서 찍어요. 사람이 다니는 출입구끼리 가장 가까운 거리를 재요.</div>` + facBlock("gateA", "단지 출입구 따로 찍기") + roadFnPanel() },
     { id:"safeEnt", sec:"4.1.4", name:"공사차량 진출입구", how:"MAIN · SUB 찍기 · 공정별", ok: state.safety.pts.some(p => ENT_TYPES.includes(p.type)), val: (n => n ? `${n}개소` : "-")(state.safety.pts.filter(p => ENT_TYPES.includes(p.type)).length), body: () => safetyPanel("ent") },
     { id:"safeRoute", sec:"4.1.4", name:"공사차량 진출입 이동경로", how:"진입 · 진출경로 그리기 · 상충 검토", ok: vehLines().length > 0, val: vehLines().length ? (conflicts().length ? "상충 있음" : "상충 없음") : "-", body: () => safetyPanel("route") },
     { id:"safe", sec:"4.1.4 ①", name:"통학로 신호기 등 설치 (안전요원·CCTV·표지판 등)", how:"기호 찍기 · 요원 박스 · 선 그리기", ok: state.safety.posts.length + state.safety.pts.length > 0,
@@ -2115,7 +2334,7 @@ function checkItems(){
   ];
 }
 function panel3(){
-  if (!state.schools.some(s => hasShape(schoolShape(s)))) return `${head(3, "위치항목 조사", "4.1 위치")}<div class="card muted">2단계에서 학교 교지나 교문을 먼저 넣어 주세요.</div>${nextBtn(2, "2단계로 가기")}`;
+  if (!state.schools.some(s => hasShape(schoolShape(s)))) return `${head(3, "위치항목 조사", "4.1 위치")}<div class="card muted">‘대상학교’에서 학교 교지나 교문을 먼저 넣어 주세요.</div>${nextBtn(2, "‘대상학교’로 가기")}`;
   const items = checkItems(), done = items.filter(i => i.ok).length;
   if (openItem === null) openItem = (items.find(i => !i.ok) || items[0]).id;
   return `<div class="row" style="align-items:flex-end">${head(3, "위치항목 조사", "4.1 위치")}<div style="flex:1"></div><div class="muted">${done} / ${items.length} 완료</div></div>
@@ -2140,7 +2359,7 @@ function panel4(){
     <div class="row">${ck("near","필지 경계")}<select class="inp sm" style="width:auto" data-near-r>${[100,200,300,500].map(r => `<option value="${r}" ${ly.nearR===r?"selected":""}>반경 ${r}m</option>`).join("")}</select>
       <button class="btn sm" data-act="near">${nearFeats.length ? "다시 불러오기" : "불러오기"}</button></div>
     ${ck("project","사업지")}${ck("site","교지 · 학교 이름")}${ck("zones","절대 · 상대보호구역")}${state.roadFn && state.roadFn.feats.length ? ck("roadFn","도로 기능 (주간선·보조간선·집산·국지)") : ""}${state.safety.phases && phList().length ? `<div class="row" style="margin-top:4px"><span style="font-size:13px;color:#4a5260">공사 공정</span><select class="inp sm" style="width:auto" data-pphase aria-label="공정">${[["all","전체"], ...phList().map(p => [p.id, p.name])].map(([v,n]) => `<option value="${v}" ${(state.print.phase || "all")===v?"selected":""}>${esc(n)}</option>`).join("")}</select></div>` : ""}<div style="font-size:13px;color:#4a5260;margin-top:4px">이격거리 치수선</div>${ck("dims","사업지 ~ 교지")}${ck("dimsFac","교지 ~ 공원·문화시설 (가장 가까운 것)")}${ck("dimsEnt","교문 ~ 단지 출입구")}<div style="font-size:13px;color:#4a5260;margin-top:4px">주변 시설 (종류별)</div>
-    ${Object.entries(FAC_TYPES).filter(([k]) => state.facs.some(f => f.type === k)).map(([k,t]) => `<label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" data-pfac="${k}" ${facShown(d, k)?"checked":""}>${swatch("fac_"+k, 18, 11)}${t.name}</label>`).join("") || `<div class="muted">넣은 시설이 없어요 (3단계)</div>`}${ck("routes","통학로")}${ck("walks","보도 · 자전거길")}${ck("safety","공사 중 안전대책 (요원 박스·기호·경로·통로·크레인)")}${state.overlays.length ? ck("overlay","붙인 도면·배치도") : ""}
+    ${Object.entries(FAC_TYPES).filter(([k]) => state.facs.some(f => f.type === k)).map(([k,t]) => `<label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" data-pfac="${k}" ${facShown(d, k)?"checked":""}>${swatch("fac_"+k, 18, 11)}${t.name}</label>`).join("") || `<div class="muted">넣은 시설이 없어요 (각 항목 ‘넣기’)</div>`}${ck("routes","통학로")}${ck("walks","보도 · 자전거길")}${ck("safety","공사 중 안전대책 (요원 박스·기호·경로·통로·크레인)")}${state.overlays.length ? ck("overlay","붙인 도면·배치도") : ""}
   </div>
   <div><div class="lab">그림 위치 · 축척</div>
     <div class="seg">${[["same","모든 그림 같게 (사업지·학교 가운데)"],["fit","그림마다 내용에 맞추기"]].map(([k, n]) => `<button class="${(pr.viewMode || "same") === k && !(pr.view && pr.view.z) ? "on" : ""}" data-viewmode="${k}">${n}</button>`).join("")}</div>
@@ -2155,9 +2374,9 @@ function panel4(){
   <div style="display:flex;flex-direction:column;gap:6px;font-size:13px"><div class="lab">글자 · 말풍선</div>
     ${[["lbl","지도 글씨", ui.lbl], ["rn","도로명", pr.rnSize || ui.lbl], ["bn","건물명", pr.bnSize || ui.lbl - 1], ["leg","범례 글씨", pr.legFs || 12], ["title","제목", pr.titleFs || 14]].map(([k, n, v]) => `<div class="row" style="gap:6px"><span style="min-width:74px">${n} 크기</span><button class="btn sm" data-fsz="${k}" data-d="-0.05" aria-label="${n} 작게">−</button><input class="inp sm" style="width:84px;text-align:center" type="number" step="0.05" min="5" max="40" data-fszin="${k}" value="${(+v).toFixed(2)}" aria-label="${n} 크기"><button class="btn sm" data-fsz="${k}" data-d="0.05" aria-label="${n} 크게">+</button></div>`).join("")}
     <div class="row" style="gap:6px"><span style="min-width:74px">안전요원</span><div class="seg" style="flex:1">${[["bubble","말풍선"],["box","박스 + 선"]].map(([k, n]) => `<button class="${(state.safety.postStyle || "bubble") === k ? "on" : ""}" data-poststyle="${k}">${n}</button>`).join("")}</div></div>
-    <div class="row" style="gap:6px"><span style="min-width:74px">아이콘 한 줄에</span><button class="btn sm" data-bubcols="-1" aria-label="줄이기">−</button><b style="min-width:30px;text-align:center">${state.safety.bubbleCols || 3}개</b><button class="btn sm" data-bubcols="1" aria-label="늘리기">+</button><span class="muted">(요원별로는 3단계에서)</span></div>
+    <div class="row" style="gap:6px"><span style="min-width:74px">아이콘 한 줄에</span><button class="btn sm" data-bubcols="-1" aria-label="줄이기">−</button><b style="min-width:30px;text-align:center">${state.safety.bubbleCols || 3}개</b><button class="btn sm" data-bubcols="1" aria-label="늘리기">+</button><span class="muted">(요원별로는 각 항목 ‘넣기’에서)</span></div>
     <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" data-declutter ${pr.declutter !== false ? "checked" : ""}>글자끼리 겹치면 자동으로 띄우기</label></div>
-  <div style="display:flex;flex-direction:column;gap:4px"><div class="lab">더 표시할 것</div>${state.rnames && state.rnames.items.length ? ck("rnames","도로명") : ""}${state.bnames && state.bnames.items.length ? ck("bnames","건물 · 단지 이름") : ""}${state.marks.length ? ck("marks","횡단보도") : ""}${state.pois.length ? ck("pois","버스정류장 · 어린이보호구역 · CCTV") : ""}${state.szones.length ? ck("szone","통학구역(학구)") + ck("szCenter","통학권 중심 거리") : ""}${!(state.rnames || state.bnames || state.marks.length || state.pois.length || state.szones.length) ? `<div class="muted">3단계 ‘자료 불러오기’에서 도로명 · 건물명 · 횡단보도 · 학구도를 넣으면 여기서 켜고 끌 수 있어요.</div>` : ""}</div>
+  <div style="display:flex;flex-direction:column;gap:4px"><div class="lab">더 표시할 것</div>${state.rnames && state.rnames.items.length ? ck("rnames","도로명") : ""}${state.bnames && state.bnames.items.length ? ck("bnames","건물 · 단지 이름") : ""}${state.marks.length ? ck("marks","횡단보도") : ""}${state.pois.length ? ck("pois","버스정류장 · 어린이보호구역 · CCTV") : ""}${state.szones.length ? ck("szone","통학구역(학구)") + ck("szCenter","통학권 중심 거리") : ""}${!(state.rnames || state.bnames || state.marks.length || state.pois.length || state.szones.length) ? `<div class="muted">각 항목 ‘넣기’ ‘자료 불러오기’에서 도로명 · 건물명 · 횡단보도 · 학구도를 넣으면 여기서 켜고 끌 수 있어요.</div>` : ""}</div>
   <button class="btn sm" data-act="openStyle">색 · 선 · 해치 바꾸기</button>
   <div><label class="lab" for="ptitle">제목</label><input class="inp" id="ptitle" data-ptitle value="${esc(pr.title)}"></div>
   <div><div class="lab">지도 틀 (모든 그림 기본)</div><div class="seg">${[["land","A4 가로"],["port","A4 세로"],["custom","직접"]].map(([k,n]) => `<button class="${(pr.paper || "land")===k?"on":""}" data-paper="${k}">${n}</button>`).join("")}</div>
@@ -2184,7 +2403,7 @@ let resTab = "loc";
 function panel5(){
   const rows = state.schools.map(schoolRow);
   let body = "";
-  if (!rows.length) body = `<div class="card muted">2단계에서 학교를 넣으면 표가 만들어져요.</div>`;
+  if (!rows.length) body = `<div class="card muted">‘대상학교’에서 학교를 넣으면 표가 만들어져요.</div>`;
   else if (resTab === "loc") body = locTable(rows);
   else if (resTab === "target") body = targetTable(rows);
   else if (resTab === "items") body = evalCards(rows);
@@ -2193,7 +2412,6 @@ function panel5(){
   <div class="tabs">${[["loc","1.2 위치항목 조사결과"],["target","3.1 평가대상"],["items","평가항목별"],["text","평가 문장"]].map(([k,n]) => `<button class="tab ${resTab===k?"on":""}" data-rtab="${k}">${n}</button>`).join("")}</div>
   ${body}
   ${rows.length ? `<div class="grid2"><button class="btn pri" data-act="copyRes">${resTab === "text" || resTab === "items" ? "문장 복사" : "표 복사 (한글·엑셀)"}</button><button class="btn" data-act="copyAllText">평가 문장 복사</button></div>
-  <button class="btn full" data-act="exportPPT" style="height:42px">PPT로 내보내기 (평가항목별 그림, 도형 편집 가능)</button>
   <div class="muted">${resTab === "loc" ? "노란 칸(사업 후)은 눌러서 고칠 수 있어요. 표는 패널이 좁으면 옆으로 밀어 보세요. 복사해서 한글에 붙이면 표로 들어가요." : "복사해서 한글·엑셀에 붙여 넣으세요."}</div>` : ""}`;
 }
 const D1 = v => v === null || v === undefined ? "-" : v === 0 ? "연접" : `약 ${m1(v)}m`;
@@ -2393,11 +2611,11 @@ function secEditor(sc){
 function safe3Panel(){
   const R = ent3();
   if (!state.safety.pts.some(p => ENT_TYPES.includes(p.type))) return `<div class="muted">① 에서 공사차량 진출입구(MAIN·SUB)를 찍으면 절대보호구역(50m) 안인지 자동으로 봐요.</div>`;
-  if (!R.length) return `<div class="muted">2단계에서 학교 교문이나 절대보호구역을 먼저 정해 주세요.</div>`;
-  return R.map(x => `<div class="res"><b>${esc(entName(x.p))}</b> · ${esc(sName(x.best.s))} 절대보호구역 ${x.best.inside ? `<span class="badge bad">구역 안</span>` : `까지 약 <b>${fmt(x.best.d)}m</b> <span class="badge out">구역 밖</span>`}</div>`).join("") + `<div class="muted">4단계 ‘③ 진출입구’ 그림에 가장 가까운 진출입구 ~ 절대보호구역 거리선이 나와요.</div>`;
+  if (!R.length) return `<div class="muted">‘대상학교’에서 학교 교문이나 절대보호구역을 먼저 정해 주세요.</div>`;
+  return R.map(x => `<div class="res"><b>${esc(entName(x.p))}</b> · ${esc(sName(x.best.s))} 절대보호구역 ${x.best.inside ? `<span class="badge bad">구역 안</span>` : `까지 약 <b>${fmt(x.best.d)}m</b> <span class="badge out">구역 밖</span>`}</div>`).join("") + `<div class="muted">‘그림’ 탭 ‘③ 진출입구’ 그림에 가장 가까운 진출입구 ~ 절대보호구역 거리선이 나와요.</div>`;
 }
 function safe4Panel(S){
-  if (!S.length) return `<div class="muted">2단계에서 학교를 먼저 넣어 주세요.</div>`;
+  if (!S.length) return `<div class="muted">‘대상학교’에서 학교를 먼저 넣어 주세요.</div>`;
   const VL = vehLines(), CF = conflicts();
   const cf = `<div class="card" style="margin-bottom:8px;font-size:13px"><b>공사차량 이동경로 ~ 통학로 상충</b>${VL.length ? VL.map(v => `<div style="margin-top:4px">${esc(v.name)} 약 ${fmt(routeLen(v.l))}m · ${CF.some(c => c.v.l === v.l) ? `<span class="badge bad">통학로 상충</span>` : `<span class="badge out">상충 없음</span>`}</div>`).join("") : `<div class="muted" style="margin-top:4px">① 에서 ‘공사차량 진입경로 · 진출경로’ 선을 그리면 통학로와 겹치는 구간을 자동으로 찾아요.</div>`}</div>`;
   return `<div class="tblWrap"><table><tr><th>학교</th><th>등교시간</th><th>진출입 제한</th><th>하교시간</th><th>진출입 제한</th></tr>
@@ -2407,7 +2625,7 @@ function safe4Panel(S){
 }
 function safe5Panel(){
   const ph = phList().find(p => p.id === CRANE_PH());
-  const head = `<div class="muted">기준 공정: <b>${ph ? esc(ph.name) : "전체"}</b> — 크레인은 이 공정에 들어가고, 4단계 ‘⑤ 타워크레인’ 그림도 이 공정으로 나와요. 크레인은 ① 의 크레인 버튼으로 넣어요.</div>`;
+  const head = `<div class="muted">기준 공정: <b>${ph ? esc(ph.name) : "전체"}</b> — 크레인은 이 공정에 들어가고, ‘그림’ 탭 ‘⑤ 타워크레인’ 그림도 이 공정으로 나와요. 크레인은 ① 의 크레인 버튼으로 넣어요.</div>`;
   if (!state.safety.cranes.length) return head;
   const off = state.safety.cranes.filter(c => c.ph !== CRANE_PH());
   return head + state.safety.cranes.map(c => { const x = crane5(c); return `<div class="res"><b>${esc(c.name)}</b> ${CRANES[c.kind] || ""} R=${c.r}m<br>교지 ${x.hitSchool ? `<span class="badge bad">침범</span>` : `이격 약 ${x.gap !== null ? fmt(x.gap) : "-"}m <span class="badge out">침범 없음</span>`} · 통학로 ${x.hitRoute ? `<span class="badge bad">침범</span>` : `<span class="badge out">침범 없음</span>`}${x.over ? ` · 사업지 밖 최대 약 ${fmt(x.over)}m` : ""}</div>`; }).join("")
@@ -3024,7 +3242,7 @@ function evalCards(rows){
   return evalItems(rows).map(x => `<div class="card" style="display:flex;flex-direction:column;gap:8px;${x.has ? "" : "opacity:.6"}">
     <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><b style="font-size:14.5px">${x.e.sec} ${esc(x.e.name)}</b><button class="btn sm" data-evpreset="${x.e.id}" data-go="1">그림 보기</button></div>
     ${x.has ? `${x.body.length ? tblHTML(x.head, x.body) : ""}${x.text ? `<div class="sent">${esc(x.text)}</div>` : ""}
-    <div class="row">${x.body.length ? `<button class="btn sm" data-evcopy="${x.e.id}" data-k="tbl">표 복사</button>` : ""}${x.text ? `<button class="btn sm" data-evcopy="${x.e.id}" data-k="txt">문장 복사</button>` : ""}</div>` : `<div class="muted">아직 넣은 자료가 없어요 (3단계). PPT에서는 빠져요.</div>`}
+    <div class="row">${x.body.length ? `<button class="btn sm" data-evcopy="${x.e.id}" data-k="tbl">표 복사</button>` : ""}${x.text ? `<button class="btn sm" data-evcopy="${x.e.id}" data-k="txt">문장 복사</button>` : ""}</div>` : `<div class="muted">아직 넣은 자료가 없어요 (각 항목 ‘넣기’). PPT에서는 빠져요.</div>`}
   </div>`).join("");
 }
 function applyEv(id){ const e = EV_DEFS.find(x => x.id === id); if (!e) return; state.print.preset = id; state.print.disp = null; state.print.title = e.fig; if (id === "ev_safe5") state.print.phase = CRANE_PH(); else if (id !== "ev_safe1") state.print.phase = "all"; save(); }
@@ -3248,7 +3466,7 @@ async function exportPPT(){
   try {
     goStep(4); await sleep(100);
     const jobs = [];
-    evalItems(rows).filter(x => x.has).forEach(x => {
+    evalItems(rows).filter(x => x.has && !(state.print.skip || []).includes(x.e.id)).forEach(x => {
       if (x.e.id === "ev_safe1" && x.phases.length) x.phases.forEach(p => jobs.push({ x, title:`${x.e.fig.replace(/>$/, "")} - ${p.name}>`, phase:p.id, sub:p.name }));
       else jobs.push({ x, title:x.e.fig, phase: x.e.id === "ev_safe5" ? CRANE_PH() : "all", sub:"" });
       if (x.e.id === "ev_safe2") (x.secs || []).forEach(sec => jobs.push({ x, sec }));
@@ -3458,7 +3676,7 @@ function switchProject(id){
   hist = []; hidx = -1; pushHist(true);
   nearFeats = []; vecFeats = []; vecStat = ""; autoRes = []; schoolCands = []; openItem = null; mode = null;
   $("#modeBar").style.display = "none";
-  goStep(1); fitAll(true); loadOverlayImages();
+  navGo(state.project.length ? "home" : "site", "in"); fitAll(true); loadOverlayImages();
 }
 function newProject(st){
   const id = uid("p"); st = normalize(st);
@@ -3471,7 +3689,9 @@ function newProject(st){
 document.addEventListener("click", async e => {
   const t = e.target.closest("button"); if (!t) return;
   const d = t.dataset;
-  if (d.step){ goStep(Number(d.step)); return; }
+  if (d.nav){ navGo(d.nav, d.ntab); $("#panel").scrollTop = 0; return; }
+  if (d.ntab){ navGo(nav.k, d.ntab); return; }
+  if (d.step){ const n = Number(d.step); navGo(n === 1 ? "site" : n === 2 ? "school" : n === 3 ? (NAV_ORDER.find(k => navInfo(k).st === "todo" && !["site","school"].includes(k)) || "park") : n === 5 ? "export" : NAV_EV(nav.k) ? nav.k : "school", n === 4 ? "fig" : "in"); return; }
   if (d.act){
     switch (d.act){
       case "selProj": setMode(on("project") ? null : { type:"project" }); break;
@@ -3494,6 +3714,11 @@ document.addEventListener("click", async e => {
       case "addPost": setMode(on("safePost") ? null : { type:"safePost" }); break;
       case "copySafe": copy(safeTable().map(r => r.join("\t")).join("\n"), "안전시설 설치계획 표를 복사했어요"); break;
       case "copySafeText": { const t = safeSentence(); copy(t || "-", t ? "문장을 복사했어요" : "아직 넣은 안전대책이 없어요"); break; }
+      case "tocMini": tocMini = !tocMini; ls("eduMap.tocMini", tocMini); renderRail(); setTimeout(() => map && map.invalidateSize(), 30); break;
+      case "drawer": if (NAV_EV(nav.k) && nav.tab !== "fig") navGo(nav.k, "fig"); drawer = true; renderPanel(); $("#panel").scrollTop = 0; break;
+      case "drawerClose": drawer = false; renderPanel(); break;
+      case "dispReset": { const id = curEv(); if (id){ evSet(id).disp = null; state.print.disp = null; save(); redraw(); renderPanel(); } break; }
+      case "projects": openProjects(); break;
       case "openStyle": { const lp = $("#layerPanel"); lp.style.display = "block"; renderLayerPanel(); $("#chipLayer").classList.add("on"); const h = [...lp.querySelectorAll("h4")].find(x => /모양/.test(x.textContent)); if (h) lp.scrollTop = h.offsetTop - 10; break; }
       case "styleReset": styles[styleKey] = { ...DEF_STYLE[styleKey] }; saveStyles(); redraw(); renderLayerPanel(); break;
       case "styleResetAll": if (confirm("모든 모양을 기본값으로 되돌릴까요?")){ Object.keys(DEF_STYLE).forEach(k => styles[k] = { ...DEF_STYLE[k] }); saveStyles(); redraw(); renderLayerPanel(); } break;
@@ -3599,7 +3824,7 @@ document.addEventListener("click", async e => {
   else if (d.secdel){ const sc = findSec(d.secdel); if (sc && confirm(`${secName(sc)} − ${secName(sc)}′ 단면을 지울까요?`)){ state.sections = state.sections.filter(x => x !== sc); if (mode && mode.id === sc.id) setMode(null); changed(); } }
   else if (d.secnum){ const sc = findSec(d.secnum); if (sc){ sc.num = Math.max(0, (sc.num || 0) + Number(d.d)); changed(); } }
   else if (d.seccol){ const sc = findSec(d.seccol); if (sc){ sc.color = d.c; changed(); } }
-  else if (d.evpreset){ applyEv(d.evpreset); if (step !== 4) goStep(4); else { layoutFrame(); redraw(); renderPanel(); } redraw(); applyFigView(); }
+  else if (d.evpreset){ if (EV_NAV[d.evpreset]) navGo(EV_NAV[d.evpreset], "fig"); else { applyEv(d.evpreset); goStep(4); redraw(); applyFigView(); } }
   else if (d.evcopy){ const x = evalItems(state.schools.map(schoolRow)).find(i => i.e.id === d.evcopy); if (x) d.k === "tbl" ? copy([x.head, ...x.body].map(r => r.join("\t")).join("\n"), "표를 복사했어요 (한글·엑셀에 붙여넣기)") : copy(x.text, "문장을 복사했어요"); }
   else if (d.paper){ state.print.paper = d.paper; save(); layoutFrame(); renderPanel(); setTimeout(() => { applyFigView(); redraw(); }, 60); }
   else if (d.ipaper !== undefined){ const id = curEv(); if (id){ const it = evSet(id); it.paper = d.ipaper || null; save(); layoutFrame(); renderPanel(); setTimeout(() => { applyFigView(); redraw(); }, 60); } }
@@ -3637,6 +3862,7 @@ document.addEventListener("change", e => {
   if (d.ovclip){ const o = state.overlays.find(x => x.id === d.ovclip); if (o){ o.clip = t.checked; save(); syncOverlays(); } return; }
   if (d.ovpaper){ const o = state.overlays.find(x => x.id === d.ovpaper); if (o){ o.paper = t.value; save(); } return; }
   if (d.ovscalen){ const o = state.overlays.find(x => x.id === d.ovscalen); if (o){ o.scale = Number(t.value) || o.scale; save(); } return; }
+  if (d.pptskip){ const sk = new Set(state.print.skip || []); t.checked ? sk.delete(d.pptskip) : sk.add(d.pptskip); state.print.skip = [...sk]; save(); renderPanel(); return; }
   if (d.withbase !== undefined){ ly.withBase = t.checked; saveLy(); renderPanel(); return; }
   if (d.sitemask !== undefined){ ly.siteMask = t.checked; saveLy(); redraw(); return; }
   if (d.ovshow){ const o = state.overlays.find(x => x.id === d.ovshow); if (o){ o.show = t.checked; save(); syncOverlays(); } return; }
@@ -3689,8 +3915,8 @@ document.addEventListener("change", e => {
   if (d.tm){ const T = state.manual.times; T[d.tm] = T[d.tm] || {}; T[d.tm][d.k] = t.value.trim(); changed(); return; }
   if (d.road){ const R = state.manual.roads; R[d.road] = R[d.road] || {}; R[d.road][d.dir] = R[d.road][d.dir] || {};
     R[d.road][d.dir][d.f] = d.f === "fn" ? t.value : (t.value === "" ? null : Number(t.value)); changed(); }
-  if (d.pfac){ const cur = { ...(state.print.disp || {}) }; cur["f_" + d.pfac] = t.checked; if (t.checked) cur.facs = true; state.print.disp = cur; save(); redraw(); renderPanel(); return; }
-  if (d.disp){ state.print.disp = { ...(state.print.disp || {}), [d.disp]: t.checked }; save(); redraw(); renderPanel(); if (d.disp === "near" && t.checked && !nearFeats.length) drawNear(); }
+  if (d.pfac){ setDisp({ ["f_" + d.pfac]: t.checked, ...(t.checked ? { facs:true } : {}) }); return; }
+  if (d.disp){ setDisp({ [d.disp]: t.checked }); if (d.disp === "near" && t.checked && !nearFeats.length) drawNear(); }
   if (d.ptitle !== undefined){ state.print.title = t.value; save(); layoutFrame(); }
 });
 document.addEventListener("input", e => {
@@ -3812,7 +4038,8 @@ applyUI();
 initMap();
 renderSnapBtns();
 loadOverlayImages();
-layoutFrame(); redraw(); renderPanel(); hints();
+if (!state.project.length && nav.k !== "site") nav = { k:"site", tab:"in" };
+navGo(nav.k, nav.tab); hints();
 </script>
 </body>
 </html>
