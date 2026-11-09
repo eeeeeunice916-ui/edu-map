@@ -162,6 +162,9 @@ td[contenteditable]:focus{box-shadow:inset 0 0 0 2px var(--blue)}
 .results div:hover{background:var(--soft)}
 .results small{color:var(--sub)}
 .chips{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.chipRange{display:inline-flex;align-items:center;gap:6px;cursor:default}
+.chipRange input{width:80px;accent-color:#1c7ed6}
+.chipRange span{min-width:34px;font-variant-numeric:tabular-nums;color:#5c636a}
 .chip{height:32px;padding:0 12px;border-radius:16px;border:1px solid #d6dae0;background:#fff;font-size:13px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.05);color:var(--ink)}
 .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 #frame.print ~ .top, #mapWrap.printing .top{display:none}
@@ -255,6 +258,7 @@ body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, b
           <button class="chip" id="chipLeg">범례</button>
           <button class="chip" id="chipFit">전체 맞추기</button>
           <button class="chip" data-act="drawer">스타일</button>
+          <label class="chip chipRange" title="작업 화면에서만 적용돼요. 그림·PPT에는 원래 색 그대로 나가요. 학교·교문 찍을 때는 자동으로 연해져요.">사업지 진하기 <input type="range" id="projOp" min="0" max="100" step="10" value="100" aria-label="작업 중 사업지 진하기"> <span id="projOpV">100%</span></label>
         </div>
       </div>
       <div id="legend"></div>
@@ -1401,12 +1405,14 @@ function buildScene(disp){
     items.push({ k:"line", coords:[r.a, r.b], sk:"dim", arrows:true });
     labels.push({ k:"dim", pt:[(r.a[0]+r.b[0])/2, (r.a[1]+r.b[1])/2], text }); leg.add("dim");
   };
+  // 사업지는 맨 아래 (학교·절대·상대보호구역이 위로 올라오게)
+  if (disp.project && state.project.length){ const su = siteUnion(); if (su) poly(su, "proj"); else state.project.forEach(p => poly(p.geom, "proj")); labels.push({ k:"label", pt:centroidOf(state.project.map(p=>p.geom)), text:"사업지", color:lblColor("proj") }); }
   if (disp.szone) (state.szones || []).filter(z => z.on !== false).forEach(z => { poly(z.geom, "szone"); labels.push({ k:"ntext", pt:z.lpt || z.c, text:z.name, color:"#A61E4D", drag:q => { z.lpt = q; } }); });
   if (disp.roadFn && state.roadFn) state.roadFn.feats.filter(f => !(state.roadFn.hidden || []).includes(rfnGroup(f))).forEach(f => { const sk = RFN_KEY[roadFnOf(f)]; if (sk) poly(f.geom, sk); });
   if (disp.near) nearFeats.forEach(f => { if (f.label && inSite(f.label)) return; items.push({ k:"poly", geom:f.geom, sk:"near", pane:"near" }); if (f.label) labels.push({ k:"nlabel", pt:f.label, text:f.jibun }); });
   vecFeats.forEach(v => {
     if (v.kind === "bike"){ if (disp.walks){ items.push({ k:"line", coords:v.coords, sk:"bike", pane:"near" }); leg.add("bike"); } }
-    else if (disp.zones && !(disp.absOnly && v.kind !== "abs")) poly(v.geom, v.kind === "abs" ? "abs" : "rel", "near");
+    else if (disp.zones && !(disp.absOnly && v.kind !== "abs")) poly(v.geom, v.kind === "abs" ? "abs" : "rel");
   });
   state.schools.forEach(s => {
     const sh = showOf(s), gs = s.parcels.map(p => p.geom);
@@ -1431,7 +1437,6 @@ function buildScene(disp){
     if (f.parcels.length){ f.parcels.forEach(p => poly(p.geom, sk)); labels.push({ k:"label", pt:centroidOf(f.parcels.map(p=>p.geom)), text:f.name, color:c }); }
     else if (f.point){ items.push({ k:"dot", pt:f.point, r:7, color:c }); labels.push({ k:"label", pt:f.point, text:f.name, color:c, dy:-22 }); leg.add(sk); }
   });
-  if (disp.project && state.project.length){ const su = siteUnion(); if (su) poly(su, "proj"); else state.project.forEach(p => poly(p.geom, "proj")); labels.push({ k:"label", pt:centroidOf(state.project.map(p=>p.geom)), text:"사업지", color:lblColor("proj") }); }
   if (disp.project) state.pgates.forEach(g => { const t = pgType(g); gateIcons.push({ id:g.id, type:t, pt:g.pt, rot:g.rot || 0, ref:g }); labels.push({ k:"label", pt:g.pt, text:g.kind, color:darken(icoStyle(t).bg, .3), dy:20 }); leg.add("sp_" + t); });
   if (disp.walks) state.walks.forEach(r => {
     if (!r.pts.length) return;
@@ -1519,12 +1524,22 @@ function buildScene(disp){
     });
   }
   if (map) declutter(labels, parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--lblfs")) || 12);
+  // 겹침 순서: 사업지 < 상대보호구역 < 절대보호구역 < 교지
+  { const RK = { rel:1, abs:2, site:3 }, idx = items.map((it, i) => it.k === "poly" && RK[it.sk] ? i : -1).filter(i => i >= 0);
+    const sorted = idx.map(i => items[i]).sort((a, b) => RK[a.sk] - RK[b.sk]); idx.forEach((i, j) => items[i] = sorted[j]); }
   return { items, labels, leg, icons, posts };
 }
 const LEG_ORDER = () => ["proj","site","abs","rel","r300","szone","conflict","rd_main","rd_sub","rd_col","rd_loc","sp_cwNow","sp_cwNew","sp_busStop","sp_kidZone","sp_cctvEx", ...Object.keys(FAC_TYPES).map(k => "fac_"+k), "walk","bike","route","dim",
   "sp_crLuff","sp_crTee","craneR","craneOut","sp_entMain","sp_entSub","sp_gateArr","sp_zebra","inRoute","outRoute","panel","roof","wait","stock","sp_pgPed","sp_pgCar","sp_staff","sp_staffS","sp_flagman","sp_sign","sp_cctv","sp_mirror","sp_light","sp_cone"];
 function legendItems(leg){ return LEG_ORDER().filter(k => leg.has(k)).map(k => [k.startsWith("sp_") ? SAFE_ICONS[k.slice(3)].name : STYLE_NAMES[k], k]); }
 let lastScene = null, rOver = null, rNear = null, rMask = null, safeLayer = null, maskLayer = null, snapLayer = null;
+// 작업 화면에서만 사업지 진하기 (그림·PPT에는 영향 없음)
+function workProjOp(){
+  if (step === 4 || nav.tab === "fig") return 1;
+  let v = ly.workOp === undefined ? 100 : ly.workOp;
+  if (mode && ["school", "schoolB", "gate", "sgate"].includes(mode.type)) v = Math.min(v, 25);
+  return v / 100;
+}
 function redraw(){
   if (!map) return;
   drawLayer.clearLayers(); nearLayer.clearLayers(); vecLayer.clearLayers();
@@ -1534,7 +1549,7 @@ function redraw(){
     const nearP = it.pane === "near";
     const grp = nearP ? (it.sk === "near" ? nearLayer : vecLayer) : drawLayer;
     const opt = { interactive:false, pane: nearP ? "near" : "overlayPane", renderer: nearP ? rNear : rOver };
-    if (it.k === "poly") L.geoJSON(it.geom, { ...opt, style:() => it.fillOnly ? { ...leafStyle(it.sk), stroke:false } : leafStyle(it.sk) }).addTo(grp);
+    if (it.k === "poly") L.geoJSON(it.geom, { ...opt, style:() => { let st = it.fillOnly ? { ...leafStyle(it.sk), stroke:false } : leafStyle(it.sk); if (it.sk === "proj"){ const k = workProjOp(); if (k < 1) st = { ...st, fillOpacity:(st.fillOpacity || 0) * k }; } return st; } }).addTo(grp);
     else if (it.k === "line"){ L.polyline(it.coords.map(ll), { ...opt, ...leafStyle(it.sk) }).addTo(grp);
       if (it.arrows || it.endArrow) arrowTris(it, c => map.latLngToContainerPoint([c[1], c[0]])).forEach(t => L.polygon(t.pts.map(q => map.containerPointToLatLng(q)), { interactive:false, renderer:rOver, stroke:!!t.outline, color:t.outline || "#000", weight:1, fillColor:t.fill, fillOpacity:1 }).addTo(drawLayer)); }
     else if (it.k === "dot") L.circleMarker(ll(it.pt), { radius:it.r, interactive:false, renderer:rOver, color:"#fff", weight:2, fillColor:it.color, fillOpacity:1 }).addTo(drawLayer);
@@ -1591,8 +1606,9 @@ function redraw(){
   });
   maskLayer.clearLayers();
   const su = siteUnion();
-  if (su && ly.siteMask !== false && dispNow().project) L.geoJSON(su, { pane:"siteMask", renderer:rMask, interactive:false, style:() => ({ stroke:false, fill:true, fillColor:"#ffffff", fillOpacity:1 }) }).addTo(maskLayer);
+  if (su && ly.siteMask !== false && dispNow().project) L.geoJSON(su, { pane:"siteMask", renderer:rMask, interactive:false, style:() => ({ stroke:false, fill:true, fillColor:"#ffffff", fillOpacity:workProjOp() }) }).addTo(maskLayer);
   injectPatterns();
+  const po = $("#projOp"); if (po){ po.value = ly.workOp === undefined ? 100 : ly.workOp; $("#projOpV").textContent = Math.round(workProjOp() * 100) + "%"; }
   syncOverlays();
   renderLegends();
 }
@@ -4023,6 +4039,7 @@ $("#chipLayer").onclick = () => toggleLayerPanel();
 $("#chip300").onclick = () => { r300On = !r300On; $("#chip300").classList.toggle("on", r300On); redraw(); if (step === 3) renderPanel(); };
 $("#chipLeg").onclick = () => { legOn = !legOn; $("#chipLeg").classList.toggle("on", legOn); if (legOn) toggleLayerPanel(false); renderLegends(); };
 $("#chipFit").onclick = () => map && fitAll();
+$("#projOp").oninput = e => { ly.workOp = Number(e.target.value); saveLy(); redraw(); };
 $("#btnUndo").onclick = () => histGo(-1); $("#btnRedo").onclick = () => histGo(1); pushHist(true);
 $("#chipRot").onclick = () => { rotOn = !rotOn; $("#chipRot").classList.toggle("on", rotOn); redraw(); toast(rotOn ? "출입구·횡단보도 옆 주황 손잡이를 끌어 방향을 돌리세요" : "기호 돌리기를 껐어요"); };
 $("#chipSnap").onclick = toggleSnap; $("#modeSnap").onclick = toggleSnap;
