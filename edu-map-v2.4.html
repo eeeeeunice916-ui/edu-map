@@ -277,7 +277,7 @@ body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, b
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "5.2";
+const APP_VERSION = "5.3";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const KINDS = ["유치원","초등학교","중학교","고등학교","특수학교","기타"];
@@ -1750,7 +1750,8 @@ async function autoFind(type){
   if (!autoRes.length) toast("근처에서 찾지 못했어요. 지도에서 직접 지정해 주세요", 3500);
 }
 let schoolCands = [];
-const SCH_RE = /유치원|초등학교|중학교|고등학교|특수학교|학교$/;
+const SCH_RE0 = /유치원|초등학교|중학교|고등학교|특수학교|학교$/, NOT_SCH = /강아지|애견|반려|펫|도그|dog|캣|고양이|운전|태권|미술|음악|영어|수학|학원|공부방|교습/i;
+const SCH_RE = { test: n => SCH_RE0.test(String(n || "")) && !NOT_SCH.test(String(n || "")) };
 const normNm = n => String(n || "").replace(/\s+/g, "").replace(/\(.*?\)/g, "");
 async function buildingAt(lng, lat){
   try { const fs = await vwData("LT_C_SPBD", { geomFilter:`POINT(${lng} ${lat})` }); const f = fs.find(x => x.geometry); return f ? { geom:f.geometry, name:String((f.properties || {}).buld_nm || "").trim() } : null; } catch(e){ return null; }
@@ -1777,15 +1778,19 @@ async function schoolLotFrom(geom, avoid){
   while (q.length && set.length < 15){ const x = q.pop(); P.forEach(y => { if (!set.includes(y) && hak(y) && !bad(y) && geomDist(x.f.geometry, y.f.geometry) < 1){ set.push(y); q.push(y); } }); }
   return set.map(x => ({ pnu:x.p.pnu || "auto_" + uid(""), addr:x.p.addr || "", jibun:x.p.jibun || "", jimok:"학교", zone:"", jiga:x.p.jiga ? Number(x.p.jiga) : null, geom:x.f.geometry }));
 }
+const schR = () => { const v = Number(state.schR); return v >= 50 && v <= 2000 ? v : 200; };
 async function findSchools(){
   const pj = state.project.map(p => p.geom);
   if (!pj.length){ toast("‘사업지’에서 사업지를 먼저 골라 주세요"); return; }
-  const buf = bufferOf(pj, 300), bb = turf.bbox(buf);
+  const R = schR(), buf = bufferOf(pj, R), bb = turf.bbox(buf);
+  const pd = (pt, g) => { try { if (g.type === "Point") return ptpt(pt, g.coordinates); if (turf.booleanPointInPolygon(turf.point(pt), turf.feature(g))) return 0; return Math.min(...polysOf(g).map(p => nearestFromPoint(pt, { type:"Polygon", coordinates:p }).d)); } catch(e){ return Infinity; } };
+  const toSite = g => g.type === "Point" ? Math.min(...pj.map(p => pd(g.coordinates, p))) : setDist(pj, [g]);
   toast("주변 학교·유치원 찾는 중… (도시계획시설 · 건물 · 장소 검색)", 20000);
-  const [upis, blds, places] = await Promise.all([
+  const [upis, blds, places, ezs] = await Promise.all([
     vwFeaturesInBox("LT_C_UPISUQ155", bb, 2).catch(() => []),
     vwFeaturesInBox("LT_C_SPBD", bb, 4).catch(() => []),
-    Promise.all(["유치원", "초등학교", "중학교", "고등학교", "학교"].map(q => placeSearchBox(q, bb))).then(a => a.flat())
+    Promise.all(["유치원", "초등학교", "중학교", "고등학교", "학교"].map(q => placeSearchBox(q, bb))).then(a => a.flat()),
+    vwFeaturesInBox("LT_C_UO101", bb, 2).catch(() => [])
   ]);
   $("#toast").style.display = "none";
   // 이름 붙은 것들 (건물: 같은 이름은 가장 큰 동, 장소: 점)
@@ -1808,12 +1813,27 @@ async function findSchools(){
   });
   // 2) 도시계획시설에 없는 학교·유치원 (넣을 때 학교 필지 → 없으면 건물 윤곽)
   named.filter(n => !used.has(n)).forEach(n => out.push({ name:n.name, geom:n.geom, src:n.src, lot:true }));
+  // 3) 교육환경보호구역(절대)으로 찾기: 이름·자료에 안 잡힌 단지 안 유치원 등
+  const known = [...out.map(c => c.geom), ...state.schools.filter(x => x.parcels.length).map(schoolUnion).filter(Boolean)];
+  const absZ = ezs.filter(f => f.geometry && zoneKind(f.properties, f.geometry) === "abs").slice(0, 40);
+  for (const z of absZ){
+    let c; try { c = turf.centroid(turf.feature(z.geometry)).geometry.coordinates; } catch(e){ continue; }
+    const cp = { type:"Point", coordinates:c };
+    if (setDist(pj, [z.geometry]) > R) continue;
+    if (known.some(g => pd(c, g) <= 60)) continue;
+    const b = await buildingAt(c[0], c[1]);
+    let nm = b && SCH_RE.test(b.name) ? b.name : "";
+    if (!nm){ const near = named.filter(n => !out.some(o => normNm(o.name) === normNm(n.name)) && pd(c, n.geom) <= 80).sort((a, b2) => pd(c, a.geom) - pd(c, b2.geom))[0]; if (near) nm = near.name; }
+    const g = b ? b.geom : cp;
+    known.push(g);
+    out.push({ name:nm || "이름 확인 필요 (보호구역)", geom:g, src:"보호구역으로 찾음" + (b ? " · 건물" : ""), noName:!nm, lot:true });
+  }
   const seen = new Map();
-  out.forEach(c => { const k = normNm(c.name); if (have.has(k) && !c.noName) return; const d = setDist(pj, [c.geom]); if (d > 300) return;
+  out.forEach(c => { const k = normNm(c.name); if (have.has(k) && !c.noName) return; const d = toSite(c.geom); if (!(d <= R)) return;
     const key = c.noName ? k + "@" + seen.size : k, old = seen.get(key); if (!old || (!/도시계획/.test(old.src) && /도시계획/.test(c.src))) seen.set(key, { ...c, d }); });
   schoolCands = [...seen.values()].sort((a, b) => a.d - b.d).map((c, i) => ({ ...c, i }));
   renderPanel();
-  if (!schoolCands.length) toast("300m 안에서 학교·유치원을 찾지 못했어요. '직접 추가'로 넣어 주세요", 4000);
+  if (!schoolCands.length) toast(`사업지 경계 ${R}m 안에서 학교·유치원을 찾지 못했어요. 범위를 늘리거나`+" '직접 추가'로 넣어 주세요", 4000);
 }
 // 같은 학교로 보이는 것 (교지·건물이 겹침)
 function dupSchools(){
@@ -2420,9 +2440,9 @@ function panel2(){
   return `${head(2, "대상학교 · 보호구역", "3.1 평가대상")}
   <div class="card">
     <div class="row" style="justify-content:space-between"><b style="font-size:14px">사업지 주변 학교</b>
-      <div class="row"><button class="btn sm" data-act="findSchools">자동 찾기 (300m)</button><button class="btn sm" data-act="addSchool">직접 추가</button></div></div>
-    ${schoolCands.length ? schoolCands.map(c => `<div class="parcel"><div class="t">${esc(c.name)}<br><span class="muted">${c.d < 0.5 ? `<b style="color:#c92a2a">사업지 안</b>` : `사업지에서 약 ${fmt(c.d)}m · ${c.d <= 200 ? "상대보호구역 범위 안" : "200m 밖"}`} · ${esc(c.src)}${c.noName ? ` · <b style="color:#e67700">이름 확인 필요</b>` : ""}${c.lot ? " · 넣을 때 학교 필지(없으면 건물 윤곽)로 교지 잡음" : ""}</span></div><button class="btn sm" data-addcand="${c.i}">+ 추가</button></div>`).join("")
-      : `<div class="muted" style="margin-top:6px">자동 찾기는 사업지 300m 안 학교·유치원을 도시계획시설(학교), 건물 이름, 장소 검색 세 가지로 찾아 교지까지 넣어 줘요. 건물 안 유치원은 건물 윤곽이 교지로 들어가요. 없으면 직접 추가하세요.</div>`}
+      <div class="row"><label class="row" style="gap:4px;font-size:13px">사업지 경계에서 <input class="inp sm" type="number" min="50" max="2000" step="10" data-schr value="${schR()}" style="width:68px;text-align:right" aria-label="학교 찾기 범위(m)">m</label><button class="btn sm pri" data-act="findSchools">자동 찾기</button><button class="btn sm" data-act="addSchool">직접 추가</button></div></div>
+    ${schoolCands.length ? schoolCands.map(c => `<div class="parcel"><div class="t">${esc(c.name)}<br><span class="muted">${c.d < 0.5 ? `<b style="color:#c92a2a">사업지 안</b>` : `사업지에서 약 ${fmt(c.d)}m · ${c.d <= 200 ? "200m 안 · 평가대상" : "200m 밖"}`} · ${esc(c.src)}${c.noName ? ` · <b style="color:#e67700">이름 확인 필요</b>` : ""}${c.lot ? " · 넣을 때 학교 필지(없으면 건물 윤곽)로 교지 잡음" : ""}</span></div><button class="btn sm" data-addcand="${c.i}">+ 추가</button></div>`).join("")
+      : `<div class="muted" style="margin-top:6px">평가대상은 사업지 경계 200m 안 학교예요(기본값). 범위를 바꿔 다시 찾을 수 있어요. 자동 찾기는 범위 안 학교·유치원을 도시계획시설(학교), 건물 이름, 장소 검색 교육환경보호구역 네 가지로 찾아 교지까지 넣어 줘요. 건물 안 유치원은 건물 윤곽이 교지로 들어가요. 없으면 직접 추가하세요.</div>`}
   </div>
   ${(() => { const dp = dupSchools(); return dp.length ? `<div class="card" style="background:#fff9db;border-color:#ffe066"><b style="font-size:14px">같은 학교로 보이는 것이 있어요</b><div class="muted" style="margin:4px 0 8px">학교 건물과 교지가 따로 들어가 학교가 두 개처럼 보여요. 합치면 교지는 넓은 쪽, 이름은 정확한 쪽으로 남아요.</div>${dp.map(([A, B], i) => `<div class="row" style="justify-content:space-between;margin-top:4px"><span>${esc(A.name || "(이름 없음)")} + ${esc(B.name || "(이름 없음)")}</span><button class="btn sm pri" data-mergesch="${A.id}|${B.id}">합치기</button></div>`).join("")}${dp.length > 1 ? `<button class="btn sm full" style="margin-top:8px" data-act="mergeAllSch">모두 합치기</button>` : ""}</div>` : ""; })()}
   ${rows.map(r => schoolCard(r)).join("")}
@@ -4135,6 +4155,7 @@ document.addEventListener("change", e => {
   if (d.pbox){ const PB = state.print.pbox = state.print.pbox || { on:false }; if (d.pbox === "on") PB.on = t.checked; else PB[d.pbox] = t.value; save(); redraw(); if (d.pbox === "on") renderPanel(); return; }
   if (d.rfn !== undefined){ if (state.roadFn){ if (t.value === "__auto") delete state.roadFn.over[d.rfn]; else state.roadFn.over[d.rfn] = t.value; changed(); } return; }
   if (d.rfncol){ const st = styles[d.rfncol]; if (d.k === "fill"){ st.fill = t.value; st.stroke = darken(t.value, .2); } else st.fillOp = Number(t.value) / 100; saveStyles(); redraw(); renderPanel(); return; }
+  if (d.schr !== undefined){ const v = Number(t.value); state.schR = v >= 50 && v <= 2000 ? Math.round(v) : 200; save(); return; }
   if (d.rfnr !== undefined){ state.roadFn = state.roadFn || { r:300, over:{}, feats:[] }; state.roadFn.r = Number(t.value); save(); return; }
   if (d.secf){ const sc = findSec(d.secf); if (sc){ const k = d.k; sc[k] = /T$/.test(k) ? (t.value === "" ? null : Number(t.value)) : t.value; changed(); } return; }
   if (d.w2){ state.manual.walk2[d.w2] = d.w2 === "roofW" ? (t.value === "" ? null : Number(t.value)) : t.value; changed(); return; }
