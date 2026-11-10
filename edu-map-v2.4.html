@@ -168,7 +168,7 @@ td[contenteditable]:focus{box-shadow:inset 0 0 0 2px var(--blue)}
 .chip{height:32px;padding:0 12px;border-radius:16px;border:1px solid #d6dae0;background:#fff;font-size:13px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.05);color:var(--ink)}
 .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 #frame.print ~ .top, #mapWrap.printing .top{display:none}
-body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, body.bgshot #map .leaflet-near-pane, body.bgshot #map .leaflet-tooltip-pane, body.bgshot #map .leaflet-popup-pane, body.bgshot #map .leaflet-control-container, body.bgshot #pTitle, body.bgshot #pNorth, body.bgshot #pLegend, body.bgshot #toast, body.bgshot #mapMsg{visibility:hidden !important}
+body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, body.bgshot #map .leaflet-near-pane, body.bgshot #map .leaflet-tooltip-pane, body.bgshot #map .leaflet-popup-pane, body.bgshot #map .leaflet-control-container, body.bgshot #pTitle, body.bgshot #pNorth, body.bgshot #pLegend, body.bgshot #pScale, body.bgshot #toast, body.bgshot #mapMsg{visibility:hidden !important}
 #modeBar{position:absolute;left:12px;bottom:14px;z-index:1000;display:none;align-items:center;gap:8px;max-width:calc(100% - 24px);
   background:var(--ink);color:#fff;border-radius:12px;padding:9px 12px;box-shadow:0 2px 10px rgba(0,0,0,.2)}
 .selL{outline:2px dashed #e03131;outline-offset:2px;background:rgba(224,49,49,.1)}
@@ -183,6 +183,41 @@ body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, b
 #legend i,#pLegend i{display:inline-block;width:18px;height:11px;margin-right:6px;vertical-align:-1px;border-radius:2px}
 #pTitle{font-size:var(--titlefs,14px)!important;position:absolute;left:50%;transform:translateX(-50%);top:12px;z-index:900;background:#fff;border:1px solid #c9ced6;padding:6px 12px;font-size:14px;font-weight:700;display:none}
 #pNorth{position:absolute;left:8px;top:6px;z-index:900;display:none}
+#pScale{position:absolute;z-index:900;display:none;pointer-events:none}
+#frame.print .leaflet-control-scale{display:none}
+#frame.print .leaflet-bottom.leaflet-right .leaflet-control-zoom{margin-bottom:44px}
+#frame.print .leaflet-control-attribution{opacity:.55;font-size:9px}
+.tocsup{font-size:11px;color:#1c7ed6;font-weight:800;margin:14px 8px 0;letter-spacing:.06em;border-top:1px solid var(--line);padding-top:8px}
+#rail.mini .tocsup{display:none}
+.qsBtn{min-width:220px;justify-content:flex-start;color:var(--sub);gap:8px}
+.qsBtn kbd,.qsk{font:11px/1 inherit;border:1px solid var(--line);border-radius:4px;padding:2px 5px;background:#f8f9fa;color:var(--sub);margin-left:auto}
+#dlg.wide{width:min(860px,94vw);max-width:none}
+.qsIn{width:100%;height:44px;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:0 14px}
+.qsList{max-height:56vh;overflow:auto;margin-top:8px}
+.qsRow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 10px;border:0;background:none;border-radius:8px;cursor:pointer;font-size:14px}
+.qsRow.on,.qsRow:hover{background:#e7f5ff}
+.qsRow .w{margin-left:auto;font-size:12px;color:var(--sub);white-space:nowrap}
+.fmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:10px;max-height:66vh;overflow:auto}
+.fmap .g{border:1px solid var(--line);border-radius:10px;padding:10px}
+.fmap .g b{display:block;font-size:13px;margin-bottom:6px}
+.fmap .g button{display:block;width:100%;text-align:left;border:0;background:none;padding:4px 6px;border-radius:6px;font-size:13px;cursor:pointer}
+.fmap .g button:hover{background:#e7f5ff}
+.secchips{position:sticky;top:-1px;z-index:5;background:var(--bg,#fff);display:flex;flex-wrap:wrap;gap:4px;padding:6px 0 8px;margin:0 0 4px;border-bottom:1px solid var(--line)}
+.secchips button{font-size:12px;border:1px solid var(--line);background:#fff;border-radius:14px;padding:3px 9px;cursor:pointer}
+.secchips button:hover{border-color:#1c7ed6;color:#1c7ed6}
+.flash{animation:flashK 1.8s ease-out}
+@keyframes flashK{0%,40%{box-shadow:0 0 0 3px #ffd43b;background:#fff9db}100%{box-shadow:0 0 0 0 transparent}}
+.dropzone{border:2px dashed #adb5bd;border-radius:10px;padding:14px;text-align:center;color:var(--sub);font-size:13px;cursor:pointer;background:#fafbfc}
+.dropzone:hover{border-color:#1c7ed6;color:#1c7ed6}
+body.dropping::after{content:"여기에 놓으면 자료 종류를 알아서 넣어요";position:fixed;inset:12px;border:3px dashed #1c7ed6;border-radius:16px;background:rgba(231,245,255,.82);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#1864ab;z-index:99999;pointer-events:none}
+.wzSteps{display:flex;gap:6px;margin:10px 0 12px}
+.wzSteps span{flex:1;text-align:center;font-size:13px;padding:6px;border-radius:8px;background:#f1f3f5;color:var(--sub)}
+.wzSteps span.on{background:#1c7ed6;color:#fff;font-weight:700}
+.wzSteps span.ok{background:#d3f9d8;color:#2b8a3e}
+.librow{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.librow .f{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+details.setbox{border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin-top:8px;background:#fafbfc}
+details.setbox>summary{cursor:pointer;font-size:13px;color:var(--sub);font-weight:600}
 #layerPanel{position:absolute;right:12px;top:104px;z-index:1001;width:320px;max-width:calc(100% - 24px);max-height:calc(100% - 170px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none}
 #layerPanel h4{margin:12px 0 4px;font-size:12px;color:var(--sub)}
 #layerPanel label{display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer}
@@ -221,8 +256,11 @@ body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, b
     <div style="display:flex;gap:4px;align-items:center"><button class="btn sm" id="btnUndo" title="되돌리기 (Ctrl+Z)" aria-label="되돌리기">↶</button><button class="btn sm" id="btnRedo" title="다시 하기 (Ctrl+Y)" aria-label="다시 하기">↷</button></div>
     <div id="saved">자동 저장됨</div>
     <div style="flex:1"></div>
+    <button class="btn sm qsBtn" id="btnQS" title="기능 빠른 찾기 (Ctrl+K)">⌕ 무엇을 찾나요? <kbd>Ctrl K</kbd></button>
+    <button class="btn sm" id="btnMySet">내 셋팅</button>
+    <button class="btn sm" id="btnFmap">기능 지도</button>
     <button class="btn sm" id="btnProjects">사업 목록</button>
-    <button class="btn sm" id="setBtn">글씨체·크기</button>
+    <button class="btn sm" id="setBtn">화면 글씨</button>
     <div id="pop">
       <div><label class="lab" for="fontSel">글씨체</label><select class="inp" id="fontSel"></select></div>
       <button class="btn sm" id="btnLocalFonts">내 컴퓨터 글씨체 불러오기</button>
@@ -242,6 +280,7 @@ body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, b
         <div id="pTitle"></div>
         <div id="pLegend"></div>
         <div id="pNorth" aria-hidden="true"></div>
+        <div id="pScale" aria-hidden="true"></div>
       </div>
       <div id="mapMsg"></div>
       <div class="top">
@@ -260,7 +299,7 @@ body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, b
           <button class="chip" id="chipLeg">범례</button>
           <button class="chip" id="chipFit">전체 맞추기</button>
           <button class="chip" id="chipOv" title="사업지 안 배치도(도면) 보이기·숨기기 — 지도·그림·PPT 모두">배치도</button>
-          <button class="chip" data-act="drawer">스타일</button>
+          <button class="chip" data-act="drawer">내 셋팅</button>
           <label class="chip chipRange" title="작업 화면에서만 적용돼요. 그림·PPT에는 원래 색 그대로 나가요. 학교·교문 찍을 때는 자동으로 연해져요.">사업지 진하기 <input type="range" id="projOp" min="0" max="100" step="10" value="100" aria-label="작업 중 사업지 진하기"> <span id="projOpV">100%</span></label>
         </div>
       </div>
@@ -280,7 +319,7 @@ body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, b
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "6.6";
+const APP_VERSION = "7.0";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const KINDS = ["유치원","초등학교","중학교","고등학교","특수학교","기타"];
@@ -1147,7 +1186,7 @@ function safetyPanel(part = "main"){
   const ico = icoStyle(icoKey);
   return `<div class="lab" style="margin:0">공정</div>
     <div class="tabs">${[["all","전체 보기"], ...phList().map(p => [p.id, p.name])].map(([v,n]) => `<button class="tab ${cur===v?"on":""}" data-phase="${v}">${esc(n)}</button>`).join("")}<button class="tab" data-act="phAdd" aria-label="공정 추가">+</button></div>
-    ${cur === "all" ? `<div class="muted">전체 보기에서 새로 넣는 것은 ‘공통’(모든 공정)으로 들어가요. 공정 탭을 고르면 공통 + 그 공정만 보이고, 새로 넣는 것은 그 공정에 들어가요.</div>`
+    ${cur === "all" ? `<div class="muted" style="font-size:12px">전체: 새로 넣으면 모든 공정 공통 · 공정 탭: 그 공정에만</div>`
       : `<div class="row"><input class="inp sm" style="flex:1;min-width:100px" data-phname="${cur}" value="${esc(phName(cur))}" aria-label="공정 이름">
         <select class="inp sm" style="width:auto" data-phcopy aria-label="다른 공정에서 복사"><option value="">다른 공정에서 복사…</option>${phList().filter(p => p.id !== cur).map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>
         <button class="btn sm" data-act="phDel">공정 지우기</button></div>`}
@@ -1167,13 +1206,13 @@ function safetyPanel(part = "main"){
     <div class="pal">${Object.entries(SAFE_LINES).filter(([k]) => lineT.includes(k)).map(([k,n]) => `<button class="palb" data-safeline="${k}">${swatch(k, 22, 12)}<span>${n}</span></button>`).join("")}</div>
     ${part === "route" ? `<div class="lab" style="margin:8px 0 0">도로를 따라 자동으로 그리기</div>
     <div class="pal">${["inRoute", "outRoute"].map(k => `<button class="palb ${on("autoRoute", k)}" data-autoroute="${k}">${swatch(k, 22, 12)}<span>${SAFE_LINES[k].replace("공사차량 ", "")} 자동</span></button>`).join("")}</div>
-    <div class="muted">출발점 → (경유지) → 도착점 순서로 찍고 ‘완료’를 누르면 도로를 따라 그려요. 진입경로는 큰길 → 진출입구, 진출경로는 진출입구 → 큰길로 찍으세요. 학교 앞을 피하려면 피해 갈 길 위에 경유지를 찍어요.</div>
-    <div class="lab" style="margin:8px 0 0">경로선 다듬기</div>
+    <div class="muted" style="font-size:12px">출발 → (경유) → 도착 순서로 찍고 ‘완료’. 학교 앞을 피하려면 피해 갈 길에 경유지를 찍어요.</div>
+    <details class="setbox"><summary>설정 ▾ 선 다듬기 · 화살표 · 길 찾기 자료</summary>
     <label class="row" style="gap:6px;font-size:12.5px"><input type="checkbox" data-routenice ${state.routeNice !== false ? "checked" : ""}>진입·진출경로를 차로 쪽으로 붙이고 모서리를 둥글게</label>
     <label class="row" style="gap:6px;font-size:12.5px"><input type="checkbox" data-routearrow ${(state.routeOpt || {}).noArrow ? "" : "checked"}>끝에 화살표 넣기 (끄면 화살표 없는 선)</label>
     <div class="row" style="gap:6px;font-size:12.5px;margin-top:2px">차로 쪽 <input class="inp sm" type="number" step="1" data-routeopt="off" value="${(state.routeOpt || {}).off ?? 3}" style="width:52px" aria-label="차로 쪽 이동(m)">m · 모서리 <input class="inp sm" type="number" min="0" step="1" data-routeopt="rad" value="${(state.routeOpt || {}).rad ?? 15}" style="width:52px" aria-label="모서리 둥글기(m)">m · 중간 화살표 간격(0=없음) <input class="inp sm" type="number" min="0" step="10" data-routeopt="gap" value="${(state.routeOpt || {}).gap ?? 0}" style="width:58px" aria-label="화살표 간격(m)">m</div>
     <div class="muted">차로 쪽: +는 진행방향 오른쪽, −는 왼쪽, 0은 도로 가운데예요. 선을 고칠 때는 원래 꺾은선이 보여요.</div>
-    <label class="row" style="gap:6px;font-size:12.5px;margin-top:4px">길 찾기 자료 <select class="inp sm" style="width:auto" data-routeengine aria-label="길 찾기 자료"><option value="osrm" ${state.routeEngine !== "local" ? "selected" : ""}>OSM 도로망 (먼 거리도 가능)</option><option value="local" ${state.routeEngine === "local" ? "selected" : ""}>브이월드 도로중심선 (사업지 주변만)</option></select></label>` : ""}` : ""}
+    <label class="row" style="gap:6px;font-size:12.5px;margin-top:4px">길 찾기 자료 <select class="inp sm" style="width:auto" data-routeengine aria-label="길 찾기 자료"><option value="osrm" ${state.routeEngine !== "local" ? "selected" : ""}>OSM 도로망 (먼 거리도 가능)</option><option value="local" ${state.routeEngine === "local" ? "selected" : ""}>브이월드 도로중심선 (사업지 주변만)</option></select></label></details>` : ""}` : ""}
     ${part === "main" ? `<div class="lab" style="margin:6px 0 0">영역 그리기</div>
     <div class="pal">${Object.entries(SAFE_AREAS).map(([k,n]) => `<button class="palb" data-safearea="${k}">${swatch(k, 22, 12)}<span>${n}</span></button>`).join("")}</div>` : ""}
     ${[...S.lines.filter(lnOk), ...S.areas.filter(arOk)].filter(V).length ? `<div class="card" style="padding:6px 10px">${[...S.lines.filter(V).filter(lnOk).map(l => [l, SAFE_LINES[l.type], "line"]), ...S.areas.filter(V).filter(arOk).map(a => [a, SAFE_AREAS[a.type], "area"])].map(([l, n, kind]) => `<div class="parcel" style="align-items:center;padding:5px 0">${swatch(l.type, 20, 11)}<span class="t" style="font-size:13px">${n}${kind === "line" && l.pts.length > 1 ? ` · 약 ${fmt(routeLen(l))}m` : ""}</span>
@@ -1191,8 +1230,8 @@ function safetyPanel(part = "main"){
     <div class="lab" style="margin:6px 0 0">작업반경 색</div>
     <div class="card" style="padding:8px 10px;font-size:13px">${quickStyle("craneR", "사업지(가설방음판넬) 안 · 색칠")}${quickStyle("craneOut", "사업지 밖 · 점선")}</div>` : ""}
     <div class="muted">기호·말풍선·크레인은 지도에서 끌어 옮길 수 있어요.</div>
-    ${part === "main" ? `<div class="lab" style="margin:6px 0 0">아이콘 모양 · 색 바꾸기 <span class="muted">(귀여운 이모지 세트도 있어요)</span></div>
-    <div class="card" style="padding:10px 12px"><div class="stg">
+    ${part === "main" ? `<details class="setbox"><summary>설정 ▾ 아이콘 모양 · 색 (이모지 세트도 있어요)</summary>
+    <div style="padding:6px 0"><div class="stg">
       <span>아이콘</span><select class="inp sm" data-icokey aria-label="바꿀 아이콘">${Object.entries(SAFE_ICONS).map(([k,v]) => `<option value="${k}" ${icoKey===k?"selected":""}>${v.name}</option>`).join("")}</select>
       <span>미리보기</span><div>${iconSVG(icoKey, 36)}</div>
       <span>모양</span><select class="inp sm" data-ico="glyph" aria-label="모양">${Object.entries(GLYPHS).map(([k,g]) => `<option value="${k}" ${ico.glyph===k?"selected":""}>${g.name}</option>`).join("")}</select>
@@ -1201,7 +1240,7 @@ function safetyPanel(part = "main"){
       <span>내 이미지</span><button class="btn sm" data-act="icoImg">PNG·JPG로 바꾸기</button>
     </div><div class="row" style="margin-top:8px"><button class="btn sm" data-act="icoReset">이 아이콘 기본값</button></div>
     <div class="row" style="margin-top:8px"><span class="muted">전체 세트</span>${Object.entries(ICON_SETS).map(([k,v]) => `<button class="btn sm" data-iconset="${k}">${v.name}</button>`).join("")}</div>
-    <div class="row" style="margin-top:6px;gap:4px">${Object.keys(SAFE_ICONS).filter(k => !SAFE_ICONS[k].rot).map(k => iconSVG(k, 26)).join("")}</div></div>
+    <div class="row" style="margin-top:6px;gap:4px">${Object.keys(SAFE_ICONS).filter(k => !SAFE_ICONS[k].rot).map(k => iconSVG(k, 26)).join("")}</div></div></details>
     <div class="lab" style="margin:6px 0 0">안전시설 설치계획 (자동 집계${phasesUsed().length ? " · 공정별" : ""})</div>
     <div class="tblWrap"><table>${safeTable().map((r, i) => `<tr>${r.map((x, j) => i ? `<td class="${j === 0 ? "l" : ""}">${esc(x)}</td>` : `<th>${esc(x)}</th>`).join("")}</tr>`).join("")}</table></div>
     <div class="grid2"><button class="btn sm" data-act="copySafe">표 복사</button><button class="btn sm" data-act="copySafeText">문장 복사</button></div>` : ""}
@@ -1338,7 +1377,8 @@ async function addOverlayFile(file){
 }
 function overlayPanel(){
   return `<div class="card">
-    <div class="row" style="justify-content:space-between"><b style="font-size:14px">도면·배치도 붙이기</b><button class="btn sm" data-act="addOverlay">PDF·이미지 올리기</button></div>
+    <div class="row" style="justify-content:space-between"><b style="font-size:14px">배치도 · 도면 붙이기</b><button class="btn sm" data-act="addOverlay">PDF·이미지 올리기</button></div>
+    ${state.overlays.length ? "" : `<button class="dropzone" data-act="addOverlay" style="margin-top:8px;width:100%">배치도 PDF·이미지를 여기에 끌어다 놓아도 돼요<br><span style="font-size:12px">A4에 그린 배치도는 ‘2점 맞추기’로 사업지에 맞춰요</span></button>`}
     ${state.overlays.length ? state.overlays.map(o => { const sel = ovSel === o.id; return `<div style="border-top:1px dashed var(--line);margin-top:8px;padding-top:8px">
       <div class="row"><label style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;font-size:13.5px"><input type="checkbox" data-ovshow="${o.id}" ${o.show?"checked":""}><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.name)}</span></label>
         <button class="btn sm ${sel ? "on" : ""}" data-ovsel="${o.id}">${sel ? "맞추는 중" : "맞추기"}</button><button class="x" data-delov="${o.id}" aria-label="지우기">✕</button></div>
@@ -1735,8 +1775,17 @@ function renderLegends(){
   lg.innerHTML = h || `<b>범례</b><div class="muted">표시할 항목이 없어요</div>`;
   lg.style.display = legOn && step !== 4 ? "block" : "none";
   const pl = $("#pLegend"), li = lastScene ? legendItems(lastScene.leg) : [];
-  if (li.length){ const Lo = legendLayout(li); pl.innerHTML = `<svg width="${Lo.w + 2}" height="${Lo.h + 2}" viewBox="-1 -1 ${Lo.w + 2} ${Lo.h + 2}" style="display:block">${primsSVGInner(legendPrims(li, 0, 0))}</svg>`; }
+  const Lo = li.length ? legendLayout(li) : null;
+  if (Lo) pl.innerHTML = `<svg width="${Lo.w + 2}" height="${Lo.h + 2}" viewBox="-1 -1 ${Lo.w + 2} ${Lo.h + 2}" style="display:block">${primsSVGInner(legendPrims(li, 0, 0))}</svg>`;
   pl.style.display = step === 4 && li.length ? "block" : "none";
+  const ps = $("#pScale"), fr = $("#frame");
+  if (ps && fr && step === 4 && map){ try {
+      const W = fr.clientWidth, H = fr.clientHeight, sn = scaleNice(H), q = decoPlace(W, H, Lo, sn.px);
+      Object.assign(pl.style, { left:(q.lx - 1) + "px", top:(q.ly - 1) + "px", right:"auto", bottom:"auto" });
+      ps.innerHTML = `<svg width="${Math.ceil(sn.px + 12)}" height="26" viewBox="0 0 ${Math.ceil(sn.px + 12)} 26" style="display:block">${primsSVGInner(scalePrims(4, 17, sn.px, sn.nice))}</svg>`;
+      Object.assign(ps.style, { left:(q.sx - 4) + "px", top:(q.sy - 17) + "px", display:"block" });
+    } catch(e){ ps.style.display = "none"; } }
+  else if (ps) ps.style.display = "none";
   const pn = $("#pNorth"); if (pn && !pn.firstChild) pn.innerHTML = `<svg width="30" height="80" viewBox="0 0 30 80">${primsSVGInner(northPrims(15, 2))}</svg>`;
 }
 /* 모양 편집 */
@@ -2363,12 +2412,11 @@ function stepDone(n){
 }
 /* ===== v5 목차 (보고서 목차 순서) ===== */
 const NAV = [
-  { g:"", items:["home"] },
-  { g:"기본 정보", items:["site", "school", "data"] },
-  { g:"4.1 위치", items:["park", "cult", "hk1", "hk2", "walk", "traffic", "roads", "sw", "ent", "photo"] },
+  { g:"준비", items:["home", "site", "school", "data"] },
+  { g:"4.1 위치", sup:"항목별 그림", items:["park", "cult", "hk1", "hk2", "walk", "traffic", "roads", "sw", "ent", "photo"] },
   { g:"4.1.4 공사 중 통학안전", items:["safeEnt", "safeRoute", "safe", "safe2", "safe3", "safe4", "safe5"] },
   { g:"4.5 보호구역", items:["haz"] },
-  { g:"마무리", items:["export"] }
+  { g:"내보내기", sup:" ", items:["export"] }
 ];
 const NAV_ORDER = NAV.flatMap(g => g.items);
 const navGroup = k => (NAV.find(g => g.items.includes(k)) || {}).g || "";
@@ -2388,7 +2436,7 @@ const sdHTML = st => `<span class="sd ${st}">${st === "ok" ? "✓" : st === "tod
 function renderRail(){
   const items = checkItems(), R = $("#rail");
   R.classList.toggle("mini", tocMini);
-  R.innerHTML = `<button class="tocMini" data-act="tocMini" title="${tocMini ? "목차 펼치기" : "목차 접기"}" aria-label="${tocMini ? "목차 펼치기" : "목차 접기"}">${tocMini ? "»" : "« 목차 접기"}</button>` + NAV.map(g => `${g.g ? `<div class="tocg">${g.g}</div>` : ""}${g.items.map(k => { const I = navInfo(k, items);
+  R.innerHTML = `<button class="tocMini" data-act="tocMini" title="${tocMini ? "목차 펼치기" : "목차 접기"}" aria-label="${tocMini ? "목차 펼치기" : "목차 접기"}">${tocMini ? "»" : "« 목차 접기"}</button>` + NAV.map(g => `${g.sup ? `<div class="tocsup">${g.sup.trim()}</div>` : ""}${g.g ? `<div class="tocg">${g.g}</div>` : ""}${g.items.map(k => { const I = navInfo(k, items);
     return `<button class="toc ${nav.k === k ? "cur" : ""}" data-nav="${k}" aria-current="${nav.k === k ? "page" : "false"}" title="${esc((I.full || I.n) + (I.val && I.val !== "-" ? "\n" + I.val : ""))}">${k === "home" ? `<span class="sd na">⌂</span>` : k === "export" ? `<span class="sd na">⇩</span>` : sdHTML(I.st)}<span class="tn">${I.sec && !/^(사업 개요|자료|현장)$/.test(I.sec) ? `<small>${esc(secShort(I.sec, I.n))}</small>` : ""}${esc(I.n)}</span></button>`; }).join("")}`).join("");
   $("#tbName").textContent = state.name;
   const ev = NAV_EV(nav.k), ct = $("#chipTabs");
@@ -2482,6 +2530,7 @@ function renderPanel(){
   else if (k === "school") body = panel2();
   else { const it = checkItems().find(i => i.id === k); body = it ? it.body() : ""; }
   Pn.innerHTML = navHead() + (k === "home" || k === "site" || k === "export" ? backupBanner() : "") + body + (k === "home" ? "" : navFoot());
+  try { addSecChips(); } catch(e){}
 }
 /* ===== 한눈에 보기 ===== */
 function dashboard(){
@@ -2531,7 +2580,8 @@ function figPanel(){
     + (k === "near" && d.near ? `<div class="row" style="padding-left:24px;gap:6px"><select class="inp sm" style="width:auto" data-near-r aria-label="필지 경계 반경">${[100,200,300,500].map(r => `<option value="${r}" ${ly.nearR === r ? "selected" : ""}>반경 ${r}m</option>`).join("")}</select><button class="btn sm" data-act="near">${nearFeats.length ? "다시 불러오기" : "불러오기"}</button></div>` : ""); };
   const keys = Object.keys(DISP_LBL), mine = keys.filter(k => base[k] === true), rest = keys.filter(k => !mine.includes(k) && k !== "absOnly");
   const hkPick = (nav.k === "hk1" || nav.k === "hk2") ? `<div class="card fcard"><b class="ft">그림 고르기</b><div class="pal" style="margin-top:6px">${(nav.k === "hk1" ? HK1 : HK2).map(x => { const e2 = EV_DEFS.find(y => y.id === x); return `<button class="palb ${id === x ? "on" : ""}" data-hkfig="${x}" style="min-width:0"><span>${esc(e2.short)}</span></button>`; }).join("")}</div><div class="muted" style="margin-top:4px">${esc(e ? e.sec + " " + e.fig : "")} · 그림마다 위치·축척·틀이 따로 저장돼요.</div></div>` : "";
-  return hkPick + `<div class="card fcard"><b class="ft">이 그림에 나오는 것</b>${mine.map(row).join("")}
+  const ovTop = id && state.overlays.length ? `<div class="card fcard"><label class="drow" style="margin:0"><span><b>배치도 넣기</b> <span class="muted">이 그림에만 · 사업지 화면에서 한 번에 고를 수도 있어요</span></span><input type="checkbox" data-ovev="${id}" ${ovEvOn(id) ? "checked" : ""} aria-label="이 그림에 배치도 넣기"></label></div>` : "";
+  return ovTop + hkPick + `<div class="card fcard"><b class="ft">이 그림에 나오는 것</b>${mine.map(row).join("")}
       <details style="margin-top:6px"><summary class="muted" style="cursor:pointer">더 넣을 수 있는 것 (${rest.length})</summary>${rest.map(row).join("")}</details>
       ${changedDisp ? `<button class="btn sm" data-act="dispReset" style="margin-top:6px">이 그림 표시 원래대로</button>` : ""}
       <div class="muted" style="margin-top:4px">여기서 켜고 끈 것은 이 그림에만 적용되고 PPT에도 그대로 들어가요.</div></div>
@@ -2544,7 +2594,7 @@ function figPanel(){
       <div class="lab" style="margin-top:8px">이 그림 틀</div><div class="seg">${[["", "기본 따름"],["land","가로"],["port","세로"],["custom","직접"]].map(([k,n]) => `<button class="${(it.paper || "") === k ? "on" : ""}" data-ipaper="${k}">${n}</button>`).join("")}</div>
       ${it.paper === "custom" ? `<div class="row" style="gap:6px;margin-top:6px;font-size:13px"><span>가로</span><input class="inp sm" style="width:80px" type="number" step="0.05" min="20" data-pw="item" value="${it.pw || 297}">mm<span>세로</span><input class="inp sm" style="width:80px" type="number" step="0.05" min="20" data-pph="item" value="${it.ph || 210}">mm</div>` : ""}` : ""}
       <div class="muted" style="margin-top:4px">지도를 끌고 확대해 틀 안에 맞춰요. 기본은 사업지와 학교가 가운데 오게 모든 그림을 같은 축척으로 맞춰요.</div></div>
-    <button class="btn full" data-act="drawer" style="height:42px">🎨 스타일 바꾸기 (색 · 글자 · 범례 · 바탕)</button>
+    <button class="btn full" data-act="drawer" style="height:42px">🎨 내 셋팅 (범례 · 축척 자리 · 글씨 · 색 · 바탕)</button>
     <div class="grid2"><button class="btn pri" data-export="png" style="height:44px">이 그림 PNG</button><button class="btn" data-export="svg" style="height:44px">SVG</button></div>
     <button class="btn full" data-nav="export" style="height:40px">PPT로 모든 그림 내보내기 →</button>
     <details><summary class="muted" style="cursor:pointer">평가항목 말고 다른 그림 종류</summary><div class="grid2" style="margin-top:6px">${Object.entries(PRESETS).map(([k,p]) => `<button class="btn sm ${pr.preset === k ? "on" : ""}" data-preset="${k}">${p.name}</button>`).join("")}</div></details>`;
@@ -2552,14 +2602,15 @@ function figPanel(){
 /* ===== 스타일 서랍 ===== */
 function styleDrawer(){
   const pr = state.print;
-  return `<div class="nhead"><button class="btn sm" data-act="drawerClose">← 돌아가기</button><h2 style="margin-top:8px">스타일</h2><div class="muted">모든 그림에 같이 적용돼요. 바꾸면 왼쪽 지도에 바로 보여요.</div></div>
+  return `<div class="nhead"><button class="btn sm" data-act="drawerClose">← 돌아가기</button><h2 style="margin-top:8px">내 셋팅</h2><div class="muted">모든 그림에 같이 적용돼요. 바꾸면 왼쪽 지도에 바로 보여요.</div></div>
+  ${mySetCard()}
   <div class="card fcard"><b class="ft">바탕</b><div class="seg" style="margin-top:6px">${[["none","흰 바탕"],["base","일반"],["gray","회색"],["sat","위성"]].map(([k,n]) => `<button class="${ly.base === k ? "on" : ""}" data-base="${k}">${n}</button>`).join("")}</div>
     <label class="drow"><span><input type="checkbox" data-withbase ${ly.withBase !== false ? "checked" : ""}>저장할 때 바탕지도도 같이</span></label></div>
   <div class="card fcard"><b class="ft">색 · 선 · 해치</b><button class="btn sm" data-act="openStyle" style="margin-top:6px">사업지 · 교지 · 보호구역 등 모양 바꾸기</button></div>
   <div class="card fcard"><b class="ft">범례</b><div class="seg" style="margin-top:6px">${Object.entries(LEG_STYLES).map(([k, n]) => `<button class="${(pr.leg || {}).style === k || (!(pr.leg || {}).style && k === "tab") ? "on" : ""}" data-legsty="${k}">${n}</button>`).join("")}</div>
     <div class="row" style="margin-top:6px;gap:6px;font-size:13px"><select class="inp sm" style="width:auto" data-legmode aria-label="범례 배치 기준"><option value="col" ${((pr.leg || {}).mode || "col") === "col" ? "selected" : ""}>열 수로 맞추기</option><option value="row" ${(pr.leg || {}).mode === "row" ? "selected" : ""}>행 수로 맞추기</option></select>
       <button class="btn sm" data-legn="-1" aria-label="줄이기">−</button><b style="min-width:44px;text-align:center">${(pr.leg || {}).n || 1}${((pr.leg || {}).mode || "col") === "col" ? "열" : "행"}</b><button class="btn sm" data-legn="1" aria-label="늘리기">+</button></div><div class="row" style="gap:10px;margin-top:6px;font-size:12.5px"><span class="muted">범례에 넣기</span>${Object.entries(LEG_OPT).map(([k, n]) => `<label class="row" style="gap:4px"><input type="checkbox" data-legshow="${k}" ${legHidden(k) ? "" : "checked"}>${n}</label>`).join("")}</div>
-    <div class="muted" style="margin-top:2px">범례는 오른쪽 아래, 방위표는 왼쪽 위, 축척은 왼쪽 아래.</div></div>
+    ${decoSeg()}</div>
   <div class="card fcard" style="font-size:13px"><b class="ft">글자 크기 (0.05 단위)</b>
     ${[["lbl","지도 글씨", ui.lbl], ["rn","도로명", pr.rnSize || ui.lbl], ["bn","건물명", pr.bnSize || ui.lbl - 1], ["leg","범례 글씨", pr.legFs || 12], ["title","제목", pr.titleFs || 14]].map(([k, n, v]) => `<div class="row" style="gap:6px;margin-top:6px"><span style="min-width:74px">${n}</span><button class="btn sm" data-fsz="${k}" data-d="-0.05" aria-label="${n} 작게">−</button><input class="inp sm" style="width:84px;text-align:center" type="number" step="0.05" min="5" max="40" data-fszin="${k}" value="${(+v).toFixed(2)}" aria-label="${n} 크기"><button class="btn sm" data-fsz="${k}" data-d="0.05" aria-label="${n} 크게">+</button></div>`).join("")}
     <div class="row" style="gap:6px;margin-top:8px;font-size:13px"><span style="min-width:74px">이름 글씨</span><select class="inp sm" style="width:auto" data-lblmode aria-label="이름 글씨 모양"><option value="neon" ${pr.lblMode !== "box" ? "selected" : ""}>검정 글씨 + 흰 네온</option><option value="box" ${pr.lblMode === "box" ? "selected" : ""}>색 상자 (하이라이트)</option></select></div>
@@ -2572,9 +2623,6 @@ function styleDrawer(){
     ${(pr.pbox || {}).on ? `<div class="grid2" style="margin-top:6px"><input class="inp sm" data-pbox="text" placeholder="${esc(state.name)}" value="${esc((pr.pbox || {}).text || "")}" aria-label="사업명 상자 글"><input class="inp sm" data-pbox="period" placeholder="2028.08~2032.08" value="${esc((pr.pbox || {}).period || "")}" aria-label="사업 기간"></div><div class="muted">지도에서 상자를 끌어 옮길 수 있어요.</div>` : ""}</div>
   <div class="card fcard"><b class="ft">모든 그림 기본 틀</b><div class="seg" style="margin-top:6px">${[["land","A4 가로"],["port","A4 세로"],["custom","직접"]].map(([k,n]) => `<button class="${(pr.paper || "land") === k ? "on" : ""}" data-paper="${k}">${n}</button>`).join("")}</div>
     ${pr.paper === "custom" ? `<div class="row" style="gap:6px;margin-top:6px;font-size:13px"><span>가로</span><input class="inp sm" style="width:80px" type="number" step="0.05" min="20" data-pw="all" value="${pr.pw || 297}">mm<span>세로</span><input class="inp sm" style="width:80px" type="number" step="0.05" min="20" data-pph="all" value="${pr.ph || 210}">mm</div>` : ""}</div>
-  <div class="card fcard" style="font-size:13px"><b class="ft">회사 스타일</b><div class="row" style="gap:6px;margin-top:6px"><select class="inp sm" style="flex:1" data-spsel aria-label="저장된 스타일">${Object.keys(stylePresets()).map(k => `<option>${esc(k)}</option>`).join("") || `<option value="">저장된 스타일 없음</option>`}</select><button class="btn sm" data-act="spApply">적용</button><button class="btn sm" data-act="spDel">지우기</button></div>
-    <div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-act="spSave">지금 모양을 스타일로 저장</button><button class="btn sm" data-act="spExport">파일로</button><button class="btn sm" data-act="spImport">파일에서</button></div>
-    <div class="muted" style="margin-top:4px">색 · 선 · 아이콘 · 범례 · 글자 크기 · 말풍선 설정을 한 번에 저장해 다른 사업에 적용해요.</div></div>
   <label class="drow" style="font-size:13px"><span><input type="checkbox" data-focus ${focusOn ? "checked" : ""}>‘넣기’ 화면에서 그 항목에 필요한 것만 지도에 보기</span></label>`;
 }
 /* ===== 표 · 문장 탭 ===== */
@@ -2719,11 +2767,13 @@ function panel1(){
   <div class="card"><div class="row" style="justify-content:space-between"><b style="font-size:14px">사업지 출입구</b><button class="btn sm ${on("pgate")}" data-act="addPGate">${on("pgate") ? "찍는 중… (완료로 끝내기)" : "+ 출입구 찍기"}</button></div>
     ${state.pgates.length ? gateRows(state.pgates, PGATE_KINDS, "p") : `<div class="muted" style="margin-top:6px">주출입구·부출입구·보행자출입구·차량출입구를 찍어 두면 교문과의 거리를 자동으로 재요.</div>`}</div>
   ${overlayPanel()}
+  ${ovEvCard()}
   ${nextBtn(2, "다음: 대상학교")}`;
 }
 
 /* 2단계 */
-function panel2(){
+function panel2(){ return libBanner() + panel2_(); }
+function panel2_(){
   const rows = state.schools.map(schoolRow);
   return `${head(2, "대상학교 · 보호구역", "3.1 평가대상")}
   <div class="card">
@@ -2895,7 +2945,7 @@ function panel4(){
   <div><div class="lab">범례 스타일</div><div class="seg">${Object.entries(LEG_STYLES).map(([k, n]) => `<button class="${(pr.leg || {}).style === k || (!(pr.leg || {}).style && k === "tab") ? "on" : ""}" data-legsty="${k}">${n}</button>`).join("")}</div>
     <div class="row" style="margin-top:6px;gap:6px;font-size:13px"><select class="inp sm" style="width:auto" data-legmode aria-label="범례 배치 기준"><option value="col" ${((pr.leg || {}).mode || "col") === "col" ? "selected" : ""}>열 수로 맞추기</option><option value="row" ${(pr.leg || {}).mode === "row" ? "selected" : ""}>행 수로 맞추기</option></select>
       <button class="btn sm" data-legn="-1" aria-label="줄이기">−</button><b style="min-width:44px;text-align:center">${(pr.leg || {}).n || 1}${((pr.leg || {}).mode || "col") === "col" ? "열" : "행"}</b><button class="btn sm" data-legn="1" aria-label="늘리기">+</button></div><div class="row" style="gap:10px;margin-top:6px;font-size:12.5px"><span class="muted">범례에 넣기</span>${Object.entries(LEG_OPT).map(([k, n]) => `<label class="row" style="gap:4px"><input type="checkbox" data-legshow="${k}" ${legHidden(k) ? "" : "checked"}>${n}</label>`).join("")}</div>
-    <div class="muted" style="margin-top:2px">범례는 오른쪽 아래, 방위표는 왼쪽 위, 축척은 왼쪽 아래에 들어가요.</div></div>
+    ${decoSeg()}</div>
   <div style="display:flex;flex-direction:column;gap:6px"><label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" data-pbox="on" ${(pr.pbox || {}).on ? "checked" : ""}>사업명 상자</label>
     ${(pr.pbox || {}).on ? `<div class="grid2"><input class="inp sm" data-pbox="text" placeholder="${esc(state.name)}" value="${esc((pr.pbox || {}).text || "")}" aria-label="사업명 상자 글"><input class="inp sm" data-pbox="period" placeholder="2028.08~2032.08" value="${esc((pr.pbox || {}).period || "")}" aria-label="사업 기간"></div><div class="muted">지도에서 상자를 끌어 옮길 수 있어요.</div>` : ""}</div>
   <div style="display:flex;flex-direction:column;gap:6px;font-size:13px"><div class="lab">글자 · 말풍선</div>
@@ -3350,9 +3400,14 @@ function setFsz(k, v){
 }
 /* ===== 회사 스타일 저장 ===== */
 const stylePresets = () => ls("eduMap.stylePresets") || {};
-function takeStyle(){ return { styles: JSON.parse(JSON.stringify(styles)), icons: JSON.parse(JSON.stringify(iconSt)), leg:{ ...(state.print.leg || {}) }, rnSize:state.print.rnSize, bnSize:state.print.bnSize, postStyle:state.safety.postStyle, bubbleCols:state.safety.bubbleCols, lblfs: getComputedStyle(document.documentElement).getPropertyValue("--lblfs") }; }
+function takeStyle(){ return { styles: JSON.parse(JSON.stringify(styles)), icons: JSON.parse(JSON.stringify(iconSt)), leg:{ ...(state.print.leg || {}) }, rnSize:state.print.rnSize, bnSize:state.print.bnSize, postStyle:state.safety.postStyle, bubbleCols:state.safety.bubbleCols, lblfs: getComputedStyle(document.documentElement).getPropertyValue("--lblfs"),
+  print: Object.fromEntries(SET_PRINT_KEYS.filter(k => state.print[k] !== undefined).map(k => [k, JSON.parse(JSON.stringify(state.print[k]))])), ui:{ font:ui.font, lbl:ui.lbl } }; }
+const SET_PRINT_KEYS = ["legFs","titleFs","lblMode","neonW","deco","legHide","paper","pw","ph","declutter","pptSize","walkLbl"];
 function putStyle(p){ if (!p) return; if (p.styles) Object.keys(p.styles).forEach(k => { if (styles[k]) styles[k] = { ...styles[k], ...p.styles[k] }; }); saveStyles(); if (p.icons){ iconSt = p.icons; saveIcons(); }
-  if (p.leg) state.print.leg = { ...p.leg }; ["rnSize","bnSize"].forEach(k => { if (p[k]) state.print[k] = p[k]; }); if (p.postStyle) state.safety.postStyle = p.postStyle; if (p.bubbleCols) state.safety.bubbleCols = p.bubbleCols; save(); redraw(); renderPanel(); }
+  if (p.leg) state.print.leg = { ...p.leg }; ["rnSize","bnSize"].forEach(k => { if (p[k]) state.print[k] = p[k]; }); if (p.postStyle) state.safety.postStyle = p.postStyle; if (p.bubbleCols) state.safety.bubbleCols = p.bubbleCols;
+  if (p.print) Object.entries(p.print).forEach(([k, v]) => { if (SET_PRINT_KEYS.includes(k)) state.print[k] = JSON.parse(JSON.stringify(v)); });
+  if (p.ui){ if (p.ui.font) ui.font = p.ui.font; if (p.ui.lbl) ui.lbl = p.ui.lbl; try { fontOptions(); $("#lblSel").value = String(ui.lbl); applyUI(); } catch(e){} }
+  try { applyNeon(); } catch(e){} save(); redraw(); renderPanel(); }
 /* ===== 브이월드 연결 점검 ===== */
 async function diagnose(){
   const out = [`[교육환경 위치도 점검] v${APP_VERSION} · ${new Date().toLocaleString("ko-KR")}`, `주소: ${location.href}`, `브라우저: ${navigator.userAgent}`];
@@ -3514,13 +3569,35 @@ function decoPrims(sc, W, H){
   const P = [];
   if (state.print.title){ const tfs = state.print.titleFs || 14, tw = textW(state.print.title, tfs) + 24, th = tfs + 14; P.push({ g:"제목", t:"rect", x:W / 2 - tw / 2, y:10, w:tw, h:th, fill:"#FFFFFF", stroke:"#C9CED6", sw:1 }, { t:"text", x:W / 2, y:10 + th / 2 + tfs * 0.36, text:state.print.title, size:tfs, color:"#1F2328", bold:true, anchor:"middle" }); }
   P.push({ g:"방위표", t:"rect", x:0, y:0, w:0.5, h:0.5, fill:"none" }, ...northPrims(22, 6));
-  const y0 = H / 2, mpp = map.distance(map.containerPointToLatLng([0, y0]), map.containerPointToLatLng([100, y0])) / 100;
-  const nice = [5,10,20,25,50,100,200,250,500,1000,2000].find(v => v / mpp >= 70) || 2000, px = nice / mpp, sx = 16, sy = H - 22;
-  P.push({ g:"축척", t:"rect", x:sx, y:sy, w:px / 2, h:6, fill:"#1F2328", stroke:"#1F2328", sw:0.8 }, { t:"rect", x:sx + px / 2, y:sy, w:px / 2, h:6, fill:"#FFFFFF", stroke:"#1F2328", sw:0.8 },
-    { t:"text", x:sx, y:sy - 5, text:"0", size:11, color:"#1F2328", anchor:"start" }, { t:"text", x:sx + px, y:sy - 5, text: nice >= 1000 ? nice / 1000 + "km" : nice + "m", size:11, color:"#1F2328", anchor:"end" });
-  const li = legendItems(sc.leg);
-  if (li.length){ const Lo = legendLayout(li), LP = legendPrims(li, W - Lo.w - 12, H - Lo.h - 12); if (LP[0]) LP[0].g = "범례"; P.push(...LP); }
+  const sn = scaleNice(H), li = legendItems(sc.leg), Lo = li.length ? legendLayout(li) : null, pl = decoPlace(W, H, Lo, sn.px);
+  P.push(...scalePrims(pl.sx, pl.sy, sn.px, sn.nice));
+  if (Lo){ const LP = legendPrims(li, pl.lx, pl.ly); if (LP[0]) LP[0].g = "범례"; P.push(...LP); }
   return P;
+}
+// 범례 · 축척 자리: 기본은 범례 왼쪽 아래 · 축척 오른쪽 아래. 겹치면 축척을 범례 위로
+const DECO_POS = { std:"기본 (범례 왼쪽)", swap:"자리 바꾸기", stack:"축척을 범례 위에" };
+function scaleNice(H){
+  const y0 = H / 2, mpp = map.distance(map.containerPointToLatLng([0, y0]), map.containerPointToLatLng([100, y0])) / 100 || 1;
+  const nice = [5,10,20,25,50,100,200,250,500,1000,2000,5000].find(v => v / mpp >= 70) || 5000; return { nice, px: nice / mpp };
+}
+function decoPlace(W, H, Lo, px){
+  const m = 12, lw = Lo ? Lo.w : 0, lh = Lo ? Lo.h : 0, want = (state.print && state.print.deco) || "std", legLeft = want !== "swap";
+  let md = want, auto = false;
+  if (md !== "stack" && Lo && lw + px + 8 + m * 2 + 24 > W){ md = "stack"; auto = true; }
+  const lx = legLeft ? m : W - lw - m, ly = H - lh - m;
+  let sx, sy;
+  if (md === "stack"){ sx = legLeft ? lx + 4 : lx + lw - px - 4; sy = Lo ? ly - 14 : H - 22; }
+  else { sx = legLeft ? W - m - 4 - px : m + 4; sy = H - 22; }
+  return { lx, ly, sx, sy, md, auto };
+}
+function scalePrims(sx, sy, px, nice){
+  return [{ g:"축척", t:"rect", x:sx, y:sy, w:px / 2, h:6, fill:"#1F2328", stroke:"#1F2328", sw:0.8 }, { t:"rect", x:sx + px / 2, y:sy, w:px / 2, h:6, fill:"#FFFFFF", stroke:"#1F2328", sw:0.8 },
+    { t:"text", x:sx, y:sy - 5, text:"0", size:11, color:"#1F2328", anchor:"start" }, { t:"text", x:sx + px, y:sy - 5, text: nice >= 1000 ? nice / 1000 + "km" : nice + "m", size:11, color:"#1F2328", anchor:"end" }];
+}
+function decoSeg(){
+  const v = state.print.deco || "std";
+  return `<div class="lab" style="margin-top:8px">범례 · 축척 자리</div><div class="seg">${Object.entries(DECO_POS).map(([k, n]) => `<button class="${v === k ? "on" : ""}" data-decopos="${k}">${n}</button>`).join("")}</div>
+    <div class="muted" style="margin-top:2px">방위표는 왼쪽 위. 범례가 넓어서 축척과 겹치면 자동으로 축척을 범례 위로 올려요.</div>`;
 }
 
 /* ===== 자료 불러오기 ===== */
@@ -3552,22 +3629,27 @@ function nearestRoad(pt){
 const cwRot = pt => { const r = nearestRoad(pt); return r ? Math.round(((r.bearing % 180) + 180) % 180 / 5) * 5 : 0; };
 async function importData(kind){
   const inp = document.createElement("input"); inp.type = "file"; inp.accept = IMP[kind].acc; if (kind === "szone") inp.multiple = true;
-  inp.onchange = async () => { const file = inp.files[0]; if (!file) return; dataBusy = kind; renderPanel();
-    try { const R = state.impR || 1000, bb = areaBox(R); if (!bb){ toast("사업지나 학교를 먼저 넣어 주세요"); return; }
-      if (kind === "szone"){
-        const fl = [...inp.files], loose = fl.filter(f => /\.(shp|dbf|prj|cpg|shx)$/i.test(f.name));
-        // 압축이 풀린 SHP 파일들(.shp .dbf .prj …)을 골랐으면 묶어서 읽기
-        if (loose.some(f => /\.shp$/i.test(f.name))){
-          if (!window.JSZip) await loadScript("https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js");
-          const z = new window.JSZip(); for (const f of loose) z.file(f.name, await f.arrayBuffer());
-          const buf = await z.generateAsync({ type:"arraybuffer" });
-          await importSzone({ name:"files.zip", arrayBuffer:async () => buf }, bb);
-        }
-        for (const f of fl.filter(f => !/\.(shp|dbf|prj|cpg|shx)$/i.test(f.name))) await importSzone(f, bb);
-      } else if (kind === "line") await importLineCSV(await readTextFile(file), bb); else await importCSV(kind, await readTextFile(file), bb);
-    } catch(e){ console.error(e); toast("파일을 읽지 못했어요: " + e.message, 5000); }
-    dataBusy = ""; changed(); };
+  inp.onchange = async () => { const fl = [...inp.files]; if (!fl.length) return; if (libAuto()) await libSave(kind, fl); await importFilesKind(kind, fl); };
   inp.click();
+}
+// 파일(들)을 종류에 맞게 넣기 — 버튼 · 끌어다 놓기 · 보관함 꺼내기 모두 여기로
+async function importFilesKind(kind, fl, quiet){
+  const R = state.impR || 1000, bb = areaBox(R);
+  if (!bb){ if (!quiet) toast("사업지나 학교를 먼저 넣어 주세요. 자료는 보관함에 두었다가 나중에 꺼낼 수 있어요", 4500); return false; }
+  dataBusy = kind; renderPanel();
+  try {
+    if (kind === "szone"){
+      const loose = fl.filter(f => /\.(shp|dbf|prj|cpg|shx)$/i.test(f.name));
+      if (loose.some(f => /\.shp$/i.test(f.name))){
+        if (!window.JSZip) await loadScript("https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js");
+        const z = new window.JSZip(); for (const f of loose) z.file(f.name, await f.arrayBuffer());
+        const buf = await z.generateAsync({ type:"arraybuffer" });
+        await importSzone({ name:"files.zip", arrayBuffer:async () => buf }, bb);
+      }
+      for (const f of fl.filter(f => !/\.(shp|dbf|prj|cpg|shx)$/i.test(f.name))) await importSzone(f, bb);
+    } else if (kind === "line") await importLineCSV(await readTextFile(fl[0]), bb); else await importCSV(kind, await readTextFile(fl[0]), bb);
+  } catch(e){ console.error(e); toast("파일을 읽지 못했어요: " + e.message, 5000); }
+  dataBusy = ""; changed(); return true;
 }
 // 자전거도로·보행자도로 CSV (전국표준데이터·지자체 자료): 좌표 → 선, 좌표 없으면 지번주소로 찾기, 같은 이름 도로를 따라 그리기
 async function geocodeAny(addr){
@@ -4052,7 +4134,7 @@ function dataPanel(){
   const R = state.impR || 1000, busy = k => dataBusy === k, cnt = k => k === "cw" ? state.marks.filter(m => m.src).length : k === "szone" ? state.szones.length : k === "line" ? state.walks.filter(w => w.src === "공공데이터").length : state.pois.filter(p => p.kind === k).length;
   const rn = state.rnames ? state.rnames.items : [], bn = state.bnames ? state.bnames.items : [];
   const nameList = (arr, kind) => arr.length ? `<div style="max-height:150px;overflow:auto;margin-top:4px">${arr.map(x => `<div class="row" style="gap:6px;font-size:13px;padding:2px 0"><input type="checkbox" data-nmon="${kind}" data-id="${x.id}" ${x.on !== false ? "checked" : ""} aria-label="보이기"><span style="flex:1">${esc(x.name)}</span><button class="x" data-nmdel="${kind}" data-id="${x.id}" aria-label="지우기">✕</button></div>`).join("")}</div>` : "";
-  return `<div class="card" style="background:#f8f9fa"><div class="row" style="justify-content:space-between"><b style="font-size:14px">실제 지도 점검</b><button class="btn sm" data-act="diag">브이월드 연결 점검</button></div><div class="muted" style="margin-top:4px">바탕지도 저장 · 도로명 · 건물명 · 도로 기능 자료가 실제로 오는지 확인해요. 결과를 복사해서 Claude에게 붙여 주세요.</div></div>
+  return `${libCard()}<div class="card" style="background:#f8f9fa"><div class="row" style="justify-content:space-between"><b style="font-size:14px">실제 지도 점검</b><button class="btn sm" data-act="diag">브이월드 연결 점검</button></div><div class="muted" style="margin-top:4px">바탕지도 저장 · 도로명 · 건물명 · 도로 기능 자료가 실제로 오는지 확인해요. 결과를 복사해서 Claude에게 붙여 주세요.</div></div>
   <div class="card" style="margin-top:8px"><div class="row" style="justify-content:space-between"><b style="font-size:14px">브이월드에서 바로</b><select class="inp sm" style="width:auto" data-impr aria-label="범위">${[300,500,1000,2000].map(r => `<option value="${r}" ${R===r?"selected":""}>주변 ${r}m</option>`).join("")}</select></div>
     <div class="grid2" style="margin-top:6px"><button class="btn sm" data-act="loadRnames" ${busy("rn") ? "disabled" : ""}>${busy("rn") ? "불러오는 중…" : rn.length ? "도로명 다시 불러오기" : "도로명 불러오기"}</button><button class="btn sm" data-act="loadBnames" ${busy("bn") ? "disabled" : ""}>${busy("bn") ? "불러오는 중…" : bn.length ? "건물·단지명 다시" : "건물·단지명 불러오기"}</button></div>
     <div class="row" style="gap:6px;font-size:12px;margin-top:6px"><span>도로명은 사업지 · 학교에서</span><select class="inp sm" style="width:auto" data-rnnear aria-label="도로명 범위">${[50,100,150,200,300].map(r => `<option value="${r}" ${(state.rnNear || 100)===r?"selected":""}>${r}m</option>`).join("")}</select><span>안 도로만</span></div>
@@ -4743,6 +4825,7 @@ function newProject(st){
   reg.list.push({ id, name: st.name, updated: Date.now() });
   ls("eduMap.p." + id, st);
   switchProject(id);
+  const dp = ls("eduMap.defPreset"); if (dp && stylePresets()[dp]) try { putStyle(stylePresets()[dp]); } catch(e){}
 }
 
 /* ===== 이벤트 ===== */
@@ -4750,6 +4833,7 @@ document.addEventListener("click", async e => {
   const t = e.target.closest("button"); if (!t) return;
   const d = t.dataset;
   if (d.nav){ navGo(d.nav, d.ntab); $("#panel").scrollTop = 0; return; }
+  if (v7Click(t, d)) return;
   if (d.ntab){ navGo(nav.k, d.ntab); return; }
   if (d.step){ const n = Number(d.step); navGo(n === 1 ? "site" : n === 2 ? "school" : n === 3 ? (NAV_ORDER.find(k => navInfo(k).st === "todo" && !["site","school"].includes(k)) || "park") : n === 5 ? "export" : NAV_EV(nav.k) ? nav.k : "school", n === 4 ? "fig" : "in"); return; }
   if (d.act){
@@ -4824,7 +4908,7 @@ document.addEventListener("click", async e => {
       case "craneToBase": { const ph = CRANE_PH(); state.safety.cranes.forEach(c => c.ph = ph); changed(); toast("크레인을 기준 공정(기초공사)으로 옮겼어요"); break; }
       case "copyAllText": copy(sentences(state.schools.map(schoolRow)), "평가 문장을 복사했어요"); break;
       case "dlgClose": closeDlg(); break;
-      case "pnew": { const n = prompt("새 사업 이름", "새 사업"); if (n !== null){ closeDlg(); newProject(blankState(n.trim() || "새 사업")); } break; }
+      case "pnew": { closeDlg(); newProject(blankState("새 사업")); openWizard(); break; }
       case "pdup": closeDlg(); newProject({ ...JSON.parse(JSON.stringify(state)), name: state.name + " (복사)" }); break;
       case "pexport": state.lastBackup = Date.now(); save(); download(new Blob([JSON.stringify({ app:"eduMap", v:APP_VERSION, state }, null, 1)], { type:"application/json" }), (state.name || "사업").replace(/[<>:"/\\|?*]/g, "") + ".json"); break;
       case "pimport": $("#fileIn").click(); break;
@@ -4943,6 +5027,7 @@ document.addEventListener("click", async e => {
 });
 document.addEventListener("change", e => {
   const t = e.target, d = t.dataset;
+  if (v7Change(t, d)) return;
   if (d.show !== undefined){ const s = findS(d.show); if (s){ showOf(s)[d.k] = t.checked; changed(); } return; }
   if (d.stylekey !== undefined){ styleKey = t.value; renderLayerPanel(); return; }
   if (d.st){ const v = ["weight","lineOp","fillOp","gap"].includes(d.st) ? Number(t.value) : t.value; styles[styleKey][d.st] = v; saveStyles(); redraw(); renderLayerPanel(); return; }
@@ -5165,12 +5250,407 @@ $("#setBtn").onclick = () => { const p = $("#pop"); p.style.display = p.style.di
 document.addEventListener("mousedown", e => { const p = $("#pop"); if (p.style.display === "flex" && !p.contains(e.target) && e.target.id !== "setBtn") p.style.display = "none"; });
 applyUI();
 
+/* ===================== v7.0 ===================== */
+/* ---- 내 셋팅 카드 (서랍 맨 위) ---- */
+function mySetCard(){
+  const P0 = stylePresets(), names = Object.keys(P0), def = ls("eduMap.defPreset") || "";
+  return `<div class="card fcard" style="font-size:13px;border-color:#a5d8ff;background:#f4faff"><b class="ft">저장한 셋팅</b>
+    ${names.length ? names.map(n => `<div class="librow"><span class="f"><b>${esc(n)}</b>${n === def ? ` <span class="badge out">새 사업 기본</span>` : ""}</span>
+      <button class="btn sm" data-myset="apply" data-n="${esc(n)}">적용</button>${n === def ? "" : `<button class="btn sm" data-myset="def" data-n="${esc(n)}">새 사업 기본</button>`}<button class="x" data-myset="del" data-n="${esc(n)}" aria-label="지우기">✕</button></div>`).join("")
+      : `<div class="muted" style="margin-top:4px">아직 저장한 셋팅이 없어요. 아래에서 범례·글씨·색을 맞춘 뒤 저장하세요.</div>`}
+    <div class="row" style="gap:6px;margin-top:8px"><button class="btn sm pri" data-act="spSave">지금 모양을 셋팅으로 저장</button><button class="btn sm" data-act="spExport">파일로 내보내기</button><button class="btn sm" data-act="spImport">파일에서 가져오기</button></div>
+    <div class="muted" style="margin-top:4px">범례 모양·열 수·자리, 축척 자리, 글씨체·크기·네온, 색·선·아이콘, 기본 틀을 한 번에 저장해요. ‘새 사업 기본’은 새 사업을 만들 때 자동으로 들어가요.</div></div>`;
+}
+
+/* ---- 평가항목별 배치도 넣기/빼기 ---- */
+const OV_EV = () => EV_DEFS.filter(e => EV_NAV[e.id]);
+function ovEvOn(id){ const e = EV_DEFS.find(x => x.id === id), it = (state.print.items || {})[id] || {}; const v = it.disp && it.disp.overlay; return v !== undefined ? !!v : !!(e && e.disp && e.disp.overlay); }
+function setOvEv(id, v){ const s = evSet(id); s.disp = { ...(s.disp || {}), overlay:!!v }; }
+function ovEvCard(){
+  const has = state.overlays.length, L = OV_EV();
+  return `<div class="card"><div class="row" style="justify-content:space-between"><b style="font-size:14px">평가항목별 배치도 넣기</b>${has ? `<span class="row" style="gap:4px"><button class="btn sm" data-ovevall="1">모두 넣기</button><button class="btn sm" data-ovevall="0">모두 빼기</button></span>` : ""}</div>
+    ${has ? `<div style="margin-top:6px;max-height:280px;overflow:auto">${L.map(e => `<label class="drow" style="font-size:13px"><span><small class="muted" style="display:inline-block;min-width:62px">${esc(e.sec)}</small>${esc(e.short)}</span><input type="checkbox" data-ovev="${e.id}" ${ovEvOn(e.id) ? "checked" : ""} aria-label="${esc(e.short)} 배치도"></label>`).join("")}</div>
+      <div class="muted" style="margin-top:4px">체크한 평가항목 그림과 PPT에만 사업지 안에 배치도가 들어가요. 각 그림 탭 맨 위에서도 바꿀 수 있어요.</div>`
+      : `<div class="muted" style="margin-top:4px">위에서 배치도를 올리면, 평가항목마다 배치도를 넣을지 뺄지 여기서 골라요.</div>`}</div>`;
+}
+
+/* ---- 자료 보관함 (이 컴퓨터 IndexedDB) ---- */
+const libMeta = () => ls("eduMap.lib") || [];
+const libAuto = () => ls("eduMap.libAuto") !== false;
+const kb = n => n > 1048576 ? (n / 1048576).toFixed(1) + "MB" : Math.max(1, Math.round(n / 1024)) + "KB";
+async function libSave(kind, files){
+  if (!IMP[kind] || !files.length) return;
+  const name = files.map(f => f.name).join(", "), old = libMeta().filter(x => x.kind === kind && x.name === name);
+  const id = "lib:" + uid("l");
+  try { await idb.put(id, files.map(f => ({ name:f.name, blob:f }))); } catch(e){ toast("보관함에 저장하지 못했어요 (브라우저 저장공간)", 4000); return; }
+  for (const o of old){ try { await idb.del(o.id); } catch(e){} }
+  ls("eduMap.lib", [...libMeta().filter(x => !old.some(o => o.id === x.id)), { id, kind, name, size:files.reduce((a, f) => a + (f.size || 0), 0), date:Date.now() }]);
+}
+async function libFiles(x){ const arr = await idb.get(x.id); return (arr || []).map(o => new File([o.blob], o.name)); }
+async function libApply(ids){
+  const L = libMeta().filter(x => !ids || ids.includes(x.id));
+  if (!L.length){ toast("보관함이 비어 있어요"); return; }
+  if (!areaBox(10)){ toast("사업지를 먼저 넣으면 보관함 자료를 꺼낼 수 있어요", 4000); return; }
+  let n = 0;
+  for (const x of L){ try { const fs = await libFiles(x); if (fs.length && await importFilesKind(x.kind, fs, true)) n++; } catch(e){ console.error(e); } }
+  state.libUsed = Date.now(); save(); renderPanel();
+  toast(`보관함 자료 ${n}개를 이 사업 주변(${state.impR || 1000}m)만 꺼냈어요`, 4500);
+}
+async function libExport(){
+  const L = libMeta(); if (!L.length){ toast("보관함이 비어 있어요"); return; }
+  if (!window.JSZip) await loadScript("https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js");
+  const z = new window.JSZip(); z.file("meta.json", JSON.stringify({ app:"eduMapLib", list:L }));
+  for (const x of L){ const fs = await libFiles(x); fs.forEach(f => z.file(x.id.replace(/[:]/g, "_") + "/" + f.name, f)); }
+  download(await z.generateAsync({ type:"blob" }), "교육환경위치도_자료보관함.zip");
+}
+async function libImport(file){
+  if (!window.JSZip) await loadScript("https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js");
+  const z = await window.JSZip.loadAsync(await file.arrayBuffer()), mf = z.file("meta.json");
+  if (!mf){ toast("보관함 파일이 아니에요"); return false; }
+  const meta = JSON.parse(await mf.async("string")); let n = 0;
+  for (const x of meta.list || []){ const dir = x.id.replace(/[:]/g, "_") + "/", fs = [];
+    for (const p of Object.keys(z.files).filter(p => p.startsWith(dir) && !z.files[p].dir)) fs.push(new File([await z.files[p].async("blob")], p.slice(dir.length)));
+    if (fs.length){ await libSave(x.kind, fs); n++; } }
+  toast(`보관함에 자료 ${n}개를 가져왔어요`); renderPanel(); return true;
+}
+function libRows(sel){
+  const L = libMeta();
+  return L.length ? L.map(x => `<div class="librow">${sel ? `<input type="checkbox" data-wzlib="${x.id}" ${sel.has(x.id) ? "checked" : ""} aria-label="꺼내 쓰기">` : `<span class="sd ok">✓</span>`}<span class="f"><b>${esc(IMP[x.kind].n)}</b> · ${esc(x.name)}</span><span class="muted">${new Date(x.date).toLocaleDateString("ko-KR")} · ${kb(x.size)}</span>${sel ? "" : `<button class="x" data-libdel="${x.id}" aria-label="보관함에서 지우기">✕</button>`}</div>`).join("")
+    : `<div class="muted" style="margin-top:4px">비어 있어요. 학구도 zip · 횡단보도 CSV처럼 전국 자료를 한 번 넣어 두면, 새 사업마다 주변 것만 자동으로 꺼내 써요.</div>`;
+}
+function libCard(){
+  const L = libMeta();
+  return `<div class="card" style="border-color:#a5d8ff"><button class="dropzone" data-act="pickFiles" style="width:100%">여기에 파일을 끌어다 놓거나 눌러서 고르세요<br><span style="font-size:12px">학구도 zip·shp · 횡단보도 · 버스 · CCTV · 어린이보호구역 · 옐로카펫 · 자전거·보행자도로 CSV · 배치도 PDF — 종류는 알아서 알아봐요</span></button>
+    <div class="row" style="justify-content:space-between;margin-top:10px"><b style="font-size:14px">자료 보관함 <span class="muted" style="font-weight:400">(이 컴퓨터)</span></b>${L.length ? `<button class="btn sm pri" data-act="libApply">이 사업에 모두 꺼내기</button>` : ""}</div>
+    ${libRows()}
+    <label class="row" style="gap:6px;font-size:12.5px;margin-top:6px"><input type="checkbox" data-libauto ${libAuto() ? "checked" : ""}>넣는 자료는 보관함에도 저장</label>
+    <div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-act="libExport">보관함 파일로 저장</button><button class="btn sm" data-act="libImport">보관함 불러오기</button><span class="muted" style="font-size:12px">다른 컴퓨터로 옮길 때</span></div></div>`;
+}
+function libBanner(){
+  const L = libMeta();
+  if (!L.length || state.libUsed || !state.project.length) return "";
+  return `<div class="card" style="background:#e7f5ff;border-color:#a5d8ff;display:flex;gap:8px;align-items:center;font-size:13px"><span style="flex:1">자료 보관함에 ${L.length}개 자료가 있어요 (${esc(uniq(L.map(x => IMP[x.kind].n)).join(", "))}). 이 사업 주변 것만 꺼낼까요?</span><button class="btn sm pri" data-act="libApply">꺼내기</button></div>`;
+}
+
+/* ---- 파일 종류 알아보기 + 끌어다 놓기 ---- */
+async function sniffKind(f){
+  const nm = f.name || "";
+  if (/\.(zip|shp|dbf|prj|cpg|shx|geojson)$/i.test(nm)) return /보관함/.test(nm) ? "lib" : "szone";
+  if (/\.(pdf|png|jpe?g|webp)$/i.test(nm)) return "ov";
+  let head = "";
+  try { head = (await readTextFile(f.slice(0, 65536))).split(/\r?\n/)[0] || ""; } catch(e){}
+  if (/\.json$/i.test(nm)) return /FeatureCollection|"Feature"/.test(head + nm) ? "szone" : "";
+  if (!/\.(csv|txt)$/i.test(nm)) return "";
+  const s = (nm + " " + head).replace(/\s+/g, "");
+  if (/옐로|yellow/i.test(s)) return "yc";
+  if (/자전거도로|보행자전용도로/.test(s)) return "line";
+  if (/횡단보도/.test(s)) return "cw";
+  if (/어린이보호구역|대상시설명|보호구역도로폭/.test(s)) return "kid";
+  if (/CCTV|카메라대수|촬영방면/i.test(s)) return "cctv";
+  if (/정류장|정류소/.test(s)) return "bus";
+  return "";
+}
+const KIND_N = k => k === "ov" ? "배치도·도면" : k === "lib" ? "자료 보관함 파일" : IMP[k] ? IMP[k].n : "모르는 파일";
+let dropQ = [];
+async function takeFiles(files){
+  if (!files.length) return;
+  const loose = files.filter(f => /\.(shp|dbf|prj|cpg|shx)$/i.test(f.name)), rest = files.filter(f => !loose.includes(f));
+  const items = [];
+  if (loose.length) items.push({ files:loose, kind:"szone", name:loose.map(f => f.name).join(", ") });
+  for (const f of rest) items.push({ files:[f], kind:await sniffKind(f), name:f.name });
+  if (wz && $("#dlgBack").style.display !== "flex") wz = null;
+  if (wz){ wz.files.push(...items.filter(x => IMP[x.kind])); for (const x of items.filter(x => IMP[x.kind])){ await libSave(x.kind, x.files); const L = libMeta(); wz.lib.add(L[L.length - 1].id); }
+    if (items.some(x => !IMP[x.kind])) toast("학구도·CSV 자료가 아닌 파일은 빼 두었어요. 배치도는 끝난 뒤 사업지 화면에 놓아 주세요", 4500);
+    renderWizard(); return; }
+  dropQ = items; openDropDlg();
+}
+function openDropDlg(){
+  const d = $("#dlg"); d.classList.add("wide");
+  d.innerHTML = `<div class="row" style="justify-content:space-between"><h2 style="margin:0;font-size:19px">놓은 파일 ${dropQ.length}개</h2><button class="x" data-act="dlgClose" aria-label="닫기">✕</button></div>
+    <div class="muted" style="margin:4px 0 8px">종류를 알아서 골라 두었어요. 틀리면 바꿔 주세요.</div>
+    ${dropQ.map((x, i) => `<div class="librow"><span class="f">${esc(x.name)}</span><select class="inp sm" style="width:auto" data-dropkind="${i}" aria-label="자료 종류"><option value="">넣지 않기</option>${[...Object.keys(IMP), "ov", "lib"].map(k => `<option value="${k}" ${x.kind === k ? "selected" : ""}>${KIND_N(k)}</option>`).join("")}</select></div>`).join("")}
+    <label class="row" style="gap:6px;font-size:13px;margin-top:10px"><input type="checkbox" id="dropLib" ${libAuto() ? "checked" : ""}>공공데이터 자료는 보관함에도 저장 (다음 사업에서 자동으로 꺼내 써요)</label>
+    ${state.project.length ? "" : `<div class="card" style="background:#fff9db;border-color:#ffe066;font-size:13px;margin-top:8px">아직 사업지가 없어서 지금은 보관함에만 넣어요. 사업지를 고르면 ‘꺼내기’로 주변 것만 들어가요.</div>`}
+    <div class="row" style="justify-content:flex-end;gap:6px;margin-top:12px"><button class="btn" data-act="dlgClose">취소</button><button class="btn pri" data-act="dropGo">넣기</button></div>`;
+  $("#dlgBack").style.display = "flex";
+}
+async function dropGo(){
+  const toLib = $("#dropLib") ? $("#dropLib").checked : libAuto(), Q = dropQ; dropQ = []; closeDlg();
+  for (const x of Q){
+    if (!x.kind) continue;
+    if (x.kind === "ov"){ await addOverlayFile(x.files[0]); if (nav.k !== "site") navGo("site", "in"); continue; }
+    if (x.kind === "lib"){ await libImport(x.files[0]); continue; }
+    if (toLib || !state.project.length) await libSave(x.kind, x.files);
+    if (state.project.length || state.schools.length) await importFilesKind(x.kind, x.files, true);
+  }
+  if (!state.project.length) toast("보관함에 넣었어요. 사업지를 고른 뒤 ‘꺼내기’를 눌러 주세요", 4500);
+  renderPanel();
+}
+function pickFiles(){ const inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.accept = ".zip,.shp,.dbf,.prj,.cpg,.shx,.geojson,.json,.csv,.txt,.pdf,.png,.jpg,.jpeg,.webp"; inp.onchange = () => takeFiles([...inp.files]); inp.click(); }
+
+/* ---- 새 사업 3단계 ---- */
+let wz = null;
+function openWizard(){
+  wz = { step:1, name:state.name === "새 사업" ? "" : state.name, base:"", txt:"", files:[], lib:new Set(libMeta().map(x => x.id)), preset:ls("eduMap.defPreset") || "", makeDef:false };
+  renderWizard();
+}
+function wzPreview(){
+  const W = 330, H = 233, keys = new Set(["abs","rel","fac_park","route"]), li = legendItems(keys).slice(0, 4);
+  const Lo = legendLayout(li), px = 70, nice = 50, q = decoPlace(W, H, Lo, px);
+  const P = [{ t:"rect", x:0, y:0, w:W, h:H, fill:"#F1F3EE" }, { t:"poly", pts:[[140,60],[230,52],[244,120],[150,130]], fill:"#FFE3E3", stroke:"#E03131", sw:1.5 }, ...northPrims(22, 6), ...scalePrims(q.sx, q.sy, px, nice), ...legendPrims(li, q.lx, q.ly)];
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;border:1px solid var(--line);border-radius:8px;background:#fff">${primsSVGInner(P)}</svg>${q.auto ? `<div class="muted" style="font-size:12px">범례가 넓어서 축척을 범례 위로 올렸어요</div>` : ""}`;
+}
+function renderWizard(){
+  if (!wz) return;
+  const d = $("#dlg"), s = wz.step, P0 = stylePresets();
+  d.classList.add("wide");
+  const body = s === 1 ? `<label class="lab" for="wzName">사업명</label><input class="inp" id="wzName" value="${esc(wz.name)}" placeholder="예: 해운대 중동 주상복합">
+      <label class="lab" style="margin-top:10px">사업지 지번 붙여넣기 <span class="muted" style="font-weight:400">(비워 두면 끝난 뒤 지도에서 드래그로 골라요)</span></label>
+      <input class="inp sm" id="wzBase" placeholder="앞주소 (예: 부산광역시 해운대구)" value="${esc(wz.base)}" style="margin-bottom:6px">
+      <textarea class="inp" id="wzTxt" rows="5" style="width:100%;height:auto;min-height:110px;font-size:13px;line-height:1.5;padding:8px" placeholder="중동 1398-16, 1398-17, 1399&#10;엑셀 지번 목록 · 토지조서 · PNU 19자리 그대로 붙여 넣어도 돼요">${esc(wz.txt)}</textarea>`
+    : s === 2 ? `<button class="dropzone" data-act="pickFiles" style="width:100%">학구도 zip · 횡단보도 CSV 등을 한꺼번에 끌어다 놓거나 눌러서 고르세요<br><span style="font-size:12px">한 번 넣은 전국 자료는 보관함에 남아서 다음 사업부터는 안 넣어도 돼요</span></button>
+      <div class="lab" style="margin-top:10px">이 사업에 꺼내 쓸 자료</div>${libRows(wz.lib)}`
+    : `<div class="grid2" style="align-items:start;gap:14px"><div>
+        <label class="lab" for="wzPreset">저장한 셋팅</label><select class="inp" id="wzPreset" data-wzpreset><option value="">지금 모양 그대로</option>${Object.keys(P0).map(k => `<option ${wz.preset === k ? "selected" : ""}>${esc(k)}</option>`).join("")}</select>
+        <div class="lab" style="margin-top:10px">범례 모양</div><div class="seg">${Object.entries(LEG_STYLES).map(([k, n]) => `<button class="${((state.print.leg || {}).style || "tab") === k ? "on" : ""}" data-legsty="${k}">${n}</button>`).join("")}</div>
+        ${decoSeg()}
+        <div class="lab" style="margin-top:10px">기본 틀</div><div class="seg">${[["land","A4 가로"],["port","A4 세로"]].map(([k, n]) => `<button class="${(state.print.paper || "land") === k ? "on" : ""}" data-paper="${k}">${n}</button>`).join("")}</div>
+        <label class="row" style="gap:6px;font-size:13px;margin-top:10px"><input type="checkbox" data-wzdef ${wz.makeDef ? "checked" : ""}>이 모양을 셋팅으로 저장하고 새 사업 기본으로</label>
+        <div class="muted" style="margin-top:4px">글씨체·색은 나중에 위쪽 ‘내 셋팅’에서 바꿀 수 있어요.</div></div>
+      <div><div class="lab">미리보기</div>${wzPreview()}</div></div>`;
+  d.innerHTML = `<div class="row" style="justify-content:space-between"><h2 style="margin:0;font-size:19px">새 사업 시작</h2><button class="x" data-wz="skip" aria-label="닫기">✕</button></div>
+    <div class="wzSteps">${["사업지","자료","내 셋팅"].map((n, i) => `<span class="${i + 1 === s ? "on" : i + 1 < s ? "ok" : ""}">${i + 1} ${n}</span>`).join("")}</div>
+    ${body}
+    <div class="row" style="gap:6px;margin-top:14px"><button class="btn" data-wz="skip">건너뛰기</button><div style="flex:1"></div>${s > 1 ? `<button class="btn" data-wz="prev">← 이전</button>` : ""}${s < 3 ? `<button class="btn pri" data-wz="next">다음 →</button>` : `<button class="btn pri" data-wz="done">시작하기</button>`}</div>`;
+  $("#dlgBack").style.display = "flex";
+}
+function wzKeep(){ if (!wz) return; const g = id => $("#" + id); if (g("wzName")) wz.name = g("wzName").value.trim(); if (g("wzBase")) wz.base = g("wzBase").value.trim(); if (g("wzTxt")) wz.txt = g("wzTxt").value; }
+async function wzDone(){
+  wzKeep(); const W = wz; wz = null; closeDlg(); $("#dlg").classList.remove("wide");
+  if (W.name){ state.name = W.name; const r0 = reg.list.find(p => p.id === reg.cur); if (r0){ r0.name = W.name; ls(PKEY, reg); } }
+  if (W.preset && stylePresets()[W.preset]) putStyle(stylePresets()[W.preset]);
+  if (W.makeDef){ const nm = (prompt("셋팅 이름", "청연 기본") || "").trim(); if (nm){ const P0 = stylePresets(); P0[nm] = takeStyle(); ls("eduMap.stylePresets", P0); ls("eduMap.defPreset", nm); } }
+  save(); navGo("site", "in");
+  if (W.txt.trim()){
+    const ta = $("#bulkTxt"), bp = $("#bulkBase"); if (ta) ta.value = W.txt; if (bp && W.base) bp.value = W.base;
+    await bulkParcels();
+  }
+  if (state.project.length){
+    if (W.lib.size) await libApply([...W.lib]);
+    navGo("school", "in"); try { await findSchools(); } catch(e){}
+  } else {
+    state.libPend = [...W.lib]; save();
+    setMode({ type:"projBox" });
+    toast("위 검색창으로 사업지에 간 뒤, 지도에서 드래그로 필지를 묶어 고르세요", 5000);
+  }
+}
+
+/* ---- 빠른 찾기 · 기능 지도 ---- */
+// [이름, 찾는 말, 이동할 곳, 화면 안에서 찾을 글자, 묶음]
+const FEATS = [
+  ["사업지 필지 드래그로 고르기", "사업지 선택 필지 네모", "site", "드래그로 사업지", "준비"],
+  ["사업지 지번 여러 개 붙여넣기", "주소 지번 토지조서 pnu 엑셀 한번에", "site", "주소 여러 개", "준비"],
+  ["사업 개요 표 복사", "개요 면적 용도지역 지목", "site", "사업 개요 표", "준비"],
+  ["사업지 출입구 (주·부·보행자·차량)", "단지출입구 주출입구 부출입구", "site", "사업지 출입구", "준비"],
+  ["배치도·도면 붙이기 · 2점 맞추기 · 구멍", "배치도 도면 pdf 이미지 a4 구멍", "site", "배치도 · 도면", "준비"],
+  ["평가항목별 배치도 넣기 · 빼기", "배치도 항목 스위치 넣기 빼기", "site", "평가항목별 배치도", "준비"],
+  ["배치도 보이기 · 숨기기 (전체)", "배치도 숨기기 끄기", { click:"#chipOv" }, "", "준비"],
+  ["대상학교 자동 찾기 · 반경 200m", "학교 찾기 반경 유치원", "school", "학교", "준비"],
+  ["교지 선으로 따기 (자석)", "교지 그리기 자석 스냅", "school", "교지", "준비"],
+  ["교문 찍기", "교문 정문 후문", "school", "교문", "준비"],
+  ["자료 끌어다 놓기 · 자료 보관함", "업로드 파일 보관함 전국 자료 한번에", "data", "자료 보관함", "자료"],
+  ["도로명 · 건물·단지명 불러오기", "도로명 건물명 단지명", "data", "도로명", "자료"],
+  ["브이월드 연결 점검", "브이월드 오류 안됨 점검", "data", "브이월드 연결 점검", "자료"],
+  ["학구도 넣기 (zip · shp)", "학구도 통학구역 shp zip", "data", "학구도", "자료"],
+  ["횡단보도 · 버스 · CCTV · 어린이보호구역 · 옐로카펫 CSV", "공공데이터 csv 횡단보도 버스 cctv 옐로카펫", "data", "공공데이터 파일", "자료"],
+  ["출입구 · 횡단보도 방향 도로에 맞추기", "방향 회전 돌리기", "data", "방향 맞추기", "자료"],
+  ["가장 가까운 공원·녹지 바로 넣기", "공원 녹지 연계축 가까운", "park", "가장 가까운 공원", "4.1 위치"],
+  ["사업지 안 신설 공원·녹지 (범례 신설)", "신설 공원 녹지 사업지 안", "park", "신설", "4.1 위치"],
+  ["가장 가까운 도서관·문화·체육시설", "도서관 문화 체육 가까운", "cult", "가장 가까운", "4.1 위치"],
+  ["초·중·고 학구도 그림", "학구도 학생배치계획 4.1.1.3", "hk1", "학구", "4.1 위치"],
+  ["학구 안 학교 더 넣기", "학구 학교 추가 포인트", "hk1", "학교", "4.1 위치"],
+  ["통학권 중심 ~ 학교 이격거리 · 평가", "통학권 중심 이격 4.1.2.1 중심", "hk2", "중심", "4.1 위치"],
+  ["통학로 그리기", "통학로 도보 통학 범위", "walk", "통학로 그리기", "4.1 위치"],
+  ["어린이보호구역 구간 · 옐로카펫", "어린이보호구역 스쿨존 옐로카펫", "walk", "어린이보호구역", "4.1 위치"],
+  ["교통유발시설 이격", "교통유발", "traffic", "", "4.1 위치"],
+  ["인접도로 도로기능 자동 찾기", "도로기능 주간선 보조간선 집산 국지 도로폭", "roads", "도로 기능", "4.1 위치"],
+  ["보도 · 자전거길 자동 그리기", "보도 자전거 보행자도로 osm", "sw", "자전거", "4.1 위치"],
+  ["교문 ~ 단지출입구 거리", "교문 단지 출입구 거리", "ent", "", "4.1 위치"],
+  ["현장사진 번호 · 사진 장표", "사진 현장", "photo", "", "4.1 위치"],
+  ["공사차량 진출입구 MAIN · SUB", "진출입구 main sub 게이트", "safeEnt", "진출입구", "4.1.4 공사 중"],
+  ["공사차량 이동경로 자동 그리기", "이동경로 진입 진출 경로 길찾기", "safeRoute", "자동으로 그리기", "4.1.4 공사 중"],
+  ["경로 화살표 없는 선 · 점 고치기", "화살표 없애기 선 고치기 점", "safeRoute", "설정", "4.1.4 공사 중"],
+  ["안전요원 말풍선", "요원 신호수 말풍선", "safe", "요원 말풍선", "4.1.4 공사 중"],
+  ["안전시설 기호 (CCTV·표지판·반사경)", "cctv 표지판 반사경 기호", "safe", "안전시설 기호", "4.1.4 공사 중"],
+  ["가설방음판넬 · 선 · 영역 그리기", "방음판넬 펜스 영역", "safe", "선 그리기", "4.1.4 공사 중"],
+  ["아이콘 모양 · 색 바꾸기", "아이콘 색 이모지", "safe", "아이콘 모양", "4.1.4 공사 중"],
+  ["타워크레인 반경", "크레인 타워크레인 반경", "safe5", "", "4.1.4 공사 중"],
+  ["A−A′ 단면선 · 도로 단면도", "단면 단면선 a-a a−a′ 도로단면 aa", "safe2", "단면선 · 도로 단면도", "4.1.4 공사 중"],
+  ["지붕형 보행통로 · 보행공간 2m", "지붕형 보행통로 2m 보행공간", "safe2", "지붕형", "4.1.4 공사 중"],
+  ["절대보호구역 안 진출입구 판정", "절대보호구역 50m 진출입", "safe3", "", "4.1.4 공사 중"],
+  ["등하교 시간 진출입 제한", "등교 하교 시간", "safe4", "", "4.1.4 공사 중"],
+  ["위험·유해시설 300m", "300m 위험 유해 4.5", "haz", "300m", "4.5"],
+  ["범례 모양 · 열 수", "범례 열 행 탭형 카드", { drawer:true }, "범례", "그림 · 셋팅"],
+  ["범례 · 축척 자리 바꾸기", "축척 범례 위치 자리 왼쪽 오른쪽", { drawer:true }, "범례 · 축척 자리", "그림 · 셋팅"],
+  ["범례에서 사업지·교지 빼기", "범례 사업지 교지 빼기 체크", { drawer:true }, "범례에 넣기", "그림 · 셋팅"],
+  ["글씨 크기 · 네온 굵기", "글자 크기 네온 하이라이트", { drawer:true }, "글자 크기", "그림 · 셋팅"],
+  ["지도 글씨체", "폰트 글씨체 맑은고딕", { click:"#setBtn" }, "", "그림 · 셋팅"],
+  ["바탕지도 (흰 · 회색 · 위성)", "바탕 배경 위성 회색", { drawer:true }, "바탕", "그림 · 셋팅"],
+  ["기본 틀 A4 가로 · 세로", "용지 a4 틀 가로 세로", { drawer:true }, "기본 틀", "그림 · 셋팅"],
+  ["사업명 상자", "사업명 상자 기간", { drawer:true }, "사업명 상자", "그림 · 셋팅"],
+  ["내 셋팅 저장 · 새 사업 기본", "셋팅 프리셋 저장 회사 스타일", { drawer:true }, "저장한 셋팅", "그림 · 셋팅"],
+  ["색 · 선 · 해치 바꾸기", "색 선 해치 모양", { drawer:true }, "색 · 선", "그림 · 셋팅"],
+  ["PPT로 내보내기", "ppt 파워포인트 내보내기", "export", "PPT", "내보내기"],
+  ["표 · 문장 복사", "표 문장 복사 한글", "export", "결과 표", "내보내기"],
+  ["작업 백업 저장", "백업 저장 파일", "export", "작업 백업", "내보내기"],
+  ["사업 목록 · 새 사업", "사업 목록 새 사업 열기", { click:"#btnProjects" }, "", "내보내기"]
+];
+const FEAT_GROUPS = ["준비","자료","4.1 위치","4.1.4 공사 중","4.5","그림 · 셋팅","내보내기"];
+function featHits(q){
+  const toks = q.toLowerCase().replace(/[′'‐−-]/g, "").split(/\s+/).filter(Boolean);
+  const navHits = NAV_ORDER.map(k => [TOC_N[k], (navInfo(k).full || "") + " " + (navInfo(k).sec || ""), k, "", "목차"]);
+  const all = [...FEATS, ...navHits];
+  if (!toks.length) return FEATS.slice(0, 12).map(f => FEATS.indexOf(f));
+  return all.map((f, i) => { const hay = (f[0] + " " + f[1] + " " + f[4]).toLowerCase().replace(/[′'‐−-]/g, ""); const sc = toks.every(t => hay.includes(t)) ? (f[0].toLowerCase().replace(/[′'‐−-]/g, "").includes(toks[0]) ? 2 : 1) : 0; return [i, sc]; })
+    .filter(x => x[1]).sort((a, b) => b[1] - a[1]).slice(0, 14).map(x => x[0]);
+}
+let qsSel = 0, qsList = [];
+function openQS(){
+  const d = $("#dlg"); d.classList.add("wide");
+  d.innerHTML = `<div class="row" style="justify-content:flex-end;margin:-4px 0 6px"><button class="x" data-act="dlgClose" aria-label="닫기">✕</button></div><input class="qsIn" id="qsIn" placeholder="무엇을 찾나요? 예) 단면, 배치도, 범례, 학구도, 화살표" autocomplete="off" aria-label="기능 찾기"><div class="qsList" id="qsList" role="listbox"></div>
+    <div class="muted" style="margin-top:6px;font-size:12px">↑↓ 고르기 · Enter 이동 · Esc 닫기 · <button class="btn sm" data-act="fmap">기능 지도 전체 보기</button></div>`;
+  $("#dlgBack").style.display = "flex";
+  const inp = $("#qsIn"); inp.oninput = () => { qsSel = 0; qsRender(inp.value); };
+  inp.onkeydown = e => { if (e.key === "ArrowDown"){ e.preventDefault(); qsSel = Math.min(qsList.length - 1, qsSel + 1); qsRender(inp.value, true); } else if (e.key === "ArrowUp"){ e.preventDefault(); qsSel = Math.max(0, qsSel - 1); qsRender(inp.value, true); } else if (e.key === "Enter" && qsList.length){ e.preventDefault(); goFeat(qsList[qsSel]); } };
+  qsSel = 0; qsRender(""); setTimeout(() => inp.focus(), 20);
+}
+function featAt(i){ if (i < FEATS.length) return FEATS[i]; const k = NAV_ORDER[i - FEATS.length]; return [TOC_N[k], "", k, "", "목차"]; }
+function featWhere(f){ const w = f[2]; return typeof w === "string" ? (TOC_N[w] || w) : w.drawer ? "내 셋팅" : w.click === "#chipOv" ? "지도 버튼줄" : w.click === "#setBtn" ? "위쪽 ‘화면 글씨’" : "위쪽 버튼"; }
+function qsRender(q, keep){
+  qsList = featHits(q);
+  $("#qsList").innerHTML = qsList.map((i, j) => { const f = featAt(i); return `<button class="qsRow ${j === qsSel ? "on" : ""}" data-feat="${i}" role="option" aria-selected="${j === qsSel}"><span>${esc(f[0])}</span><span class="w">${esc(featWhere(f))}</span></button>`; }).join("") || `<div class="muted" style="padding:10px">찾는 기능이 없어요. 다른 말로 찾아보거나 기능 지도를 보세요.</div>`;
+  if (keep){ const el = $("#qsList .qsRow.on"); if (el && el.scrollIntoView) el.scrollIntoView({ block:"nearest" }); }
+}
+function openFmap(){
+  const d = $("#dlg"); d.classList.add("wide");
+  d.innerHTML = `<div class="row" style="justify-content:space-between"><h2 style="margin:0;font-size:19px">기능 지도</h2><button class="x" data-act="dlgClose" aria-label="닫기">✕</button></div>
+    <div class="muted">눌러서 바로 그 자리로 가요. 위쪽 ‘무엇을 찾나요? (Ctrl+K)’로 검색해도 돼요.</div>
+    <div class="fmap">${FEAT_GROUPS.map(g => `<div class="g"><b>${esc(g)}</b>${FEATS.map((f, i) => f[4] === g ? `<button data-feat="${i}">${esc(f[0])} <span class="muted" style="font-size:11px">· ${esc(featWhere(f))}</span></button>` : "").join("")}</div>`).join("")}</div>`;
+  $("#dlgBack").style.display = "flex";
+}
+function goFeat(i){
+  const f = featAt(i), w = f[2]; closeDlg(); $("#dlg").classList.remove("wide");
+  if (typeof w === "object" && w.click){ const b = $(w.click); if (b) b.click(); return; }
+  if (typeof w === "object" && w.drawer){ if (NAV_EV(nav.k) && nav.tab !== "fig") navGo(nav.k, "fig"); else if (!NAV_EV(nav.k)) navGo("park", "fig"); drawer = true; renderPanel(); }
+  else navGo(w, "in");
+  if (f[3]) setTimeout(() => flashFind(f[3]), 140);
+}
+function flashFind(txt){
+  const Pn = $("#panel"); if (!Pn) return;
+  const cands = [...Pn.querySelectorAll("b, .lab, summary, button, label, h2, .ft")].filter(el => (el.textContent || "").includes(txt));
+  const el = cands.sort((a, b) => a.textContent.length - b.textContent.length)[0]; if (!el) return;
+  let p = el.parentElement; while (p && p !== Pn){ if (p.tagName === "DETAILS") p.open = true; p = p.parentElement; }
+  const box = el.closest(".card") || el;
+  if (box.scrollIntoView) box.scrollIntoView({ block:"center", behavior:"smooth" });
+  box.classList.remove("flash"); void box.offsetWidth; box.classList.add("flash");
+  setTimeout(() => box.classList.remove("flash"), 1900);
+}
+
+/* ---- 화면 안 소항목 칩 ---- */
+let secEls = [];
+function addSecChips(){
+  const Pn = $("#panel"); secEls = [];
+  if (drawer || ["home","export"].includes(nav.k)) return;
+  const hd = Pn.querySelector(".nhead"); if (!hd) return;
+  const seen = new Set(), out = [];
+  Pn.querySelectorAll(".card > b, .card b.ft, .card > .row > b, div.lab, details > summary").forEach(el => {
+    if (el.closest(".nhead") || el.closest(".secchips")) return;
+    const first = [...el.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
+    let t = (first ? first.textContent : el.textContent).replace(/[▾()]/g, " ").replace(/\s+/g, " ").trim();
+    if (!t || t.length < 2 || /^\d+$/.test(t)) return;
+    if (t.length > 16) t = t.slice(0, 15) + "…";
+    if (seen.has(t)) return; seen.add(t); out.push([t, el]);
+  });
+  if (out.length < 3) return;
+  secEls = out.slice(0, 14).map(x => x[1]);
+  const bar = document.createElement("div"); bar.className = "secchips"; bar.setAttribute("aria-label", "이 화면 바로가기");
+  bar.innerHTML = out.slice(0, 14).map(([t], i) => `<button data-secchip="${i}">${esc(t)}</button>`).join("");
+  hd.after(bar);
+}
+function goSecChip(i){
+  const el = secEls[i]; if (!el) return;
+  if (el.tagName === "SUMMARY" && el.parentElement) el.parentElement.open = true;
+  let p = el.parentElement; while (p && p.id !== "panel"){ if (p.tagName === "DETAILS") p.open = true; p = p.parentElement; }
+  const box = el.closest(".card") || el;
+  if (box.scrollIntoView) box.scrollIntoView({ block:"start", behavior:"smooth" });
+  box.classList.remove("flash"); void box.offsetWidth; box.classList.add("flash");
+}
+
+/* ---- 이벤트 ---- */
+function v7Click(t, d){
+  if (d.decopos){ state.print.deco = d.decopos; save(); redraw(); if (wz) renderWizard(); else renderPanel(); return true; }
+  if (d.feat !== undefined){ goFeat(Number(d.feat)); return true; }
+  if (d.secchip !== undefined){ goSecChip(Number(d.secchip)); return true; }
+  if (d.ovevall !== undefined){ OV_EV().forEach(e => setOvEv(e.id, d.ovevall === "1")); save(); syncOverlays(); redraw(); renderPanel(); toast(d.ovevall === "1" ? "모든 평가항목 그림에 배치도를 넣어요" : "모든 평가항목 그림에서 배치도를 뺐어요"); return true; }
+  if (d.libdel){ const x = libMeta().find(y => y.id === d.libdel); if (x && confirm(`보관함에서 ‘${x.name}’을(를) 지울까요? (이 사업에 이미 넣은 것은 그대로예요)`)){ idb.del(x.id).catch(() => {}); ls("eduMap.lib", libMeta().filter(y => y.id !== x.id)); renderPanel(); } return true; }
+  if (d.myset){ const n = d.n, P0 = stylePresets();
+    if (d.myset === "apply" && P0[n]){ putStyle(P0[n]); toast(`‘${n}’ 셋팅을 적용했어요`); }
+    else if (d.myset === "def"){ ls("eduMap.defPreset", n); renderPanel(); toast(`새 사업은 ‘${n}’ 셋팅으로 시작해요`); }
+    else if (d.myset === "del" && confirm(`‘${n}’ 셋팅을 지울까요?`)){ delete P0[n]; ls("eduMap.stylePresets", P0); if (ls("eduMap.defPreset") === n) ls("eduMap.defPreset", ""); renderPanel(); }
+    return true; }
+  if (d.wz){ wzKeep();
+    if (d.wz === "next"){ wz.step = Math.min(3, wz.step + 1); renderWizard(); }
+    else if (d.wz === "prev"){ wz.step = Math.max(1, wz.step - 1); renderWizard(); }
+    else if (d.wz === "skip"){ wz = null; closeDlg(); $("#dlg").classList.remove("wide"); }
+    else if (d.wz === "done") wzDone();
+    return true; }
+  if (wz && (d.legsty || d.paper)){
+    if (d.legsty){ state.print.leg = { ...(state.print.leg || {}), style:d.legsty }; }
+    if (d.paper) state.print.paper = d.paper;
+    save(); redraw(); renderWizard(); return true; }
+  if (d.act){
+    switch (d.act){
+      case "libApply": libApply(); return true;
+      case "libExport": libExport(); return true;
+      case "libImport": { const inp = document.createElement("input"); inp.type = "file"; inp.accept = ".zip"; inp.onchange = () => inp.files[0] && libImport(inp.files[0]); inp.click(); return true; }
+      case "pickFiles": pickFiles(); return true;
+      case "dropGo": dropGo(); return true;
+      case "fmap": openFmap(); return true;
+      case "dlgClose": wz = null; $("#dlg").classList.remove("wide"); return false;
+    }
+  }
+  return false;
+}
+function v7Change(t, d){
+  if (d.ovev){ setOvEv(d.ovev, t.checked); save(); syncOverlays(); redraw(); renderPanel(); return true; }
+  if (d.libauto !== undefined){ ls("eduMap.libAuto", t.checked); return true; }
+  if (d.wzlib){ if (wz){ t.checked ? wz.lib.add(d.wzlib) : wz.lib.delete(d.wzlib); } return true; }
+  if (d.wzdef !== undefined){ if (wz) wz.makeDef = t.checked; return true; }
+  if (d.wzpreset !== undefined){ if (wz){ wz.preset = t.value; if (t.value && stylePresets()[t.value]) putStyle(stylePresets()[t.value]); renderWizard(); } return true; }
+  if (d.dropkind !== undefined){ const x = dropQ[Number(d.dropkind)]; if (x) x.kind = t.value; return true; }
+  return false;
+}
+function v7Init(){
+  $("#btnQS").onclick = openQS;
+  $("#btnFmap").onclick = openFmap;
+  $("#btnMySet").onclick = () => { if (NAV_EV(nav.k)){ if (nav.tab !== "fig") navGo(nav.k, "fig"); } else navGo("park", "fig"); drawer = true; renderPanel(); $("#panel").scrollTop = 0; };
+  document.addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")){ e.preventDefault(); openQS(); } });
+  document.addEventListener("dragover", e => { const ty = [...((e.dataTransfer && e.dataTransfer.types) || [])]; if (ty.includes("Files")){ e.preventDefault(); document.body.classList.add("dropping"); } });
+  document.addEventListener("dragleave", e => { if (!e.relatedTarget || e.relatedTarget === document.documentElement) document.body.classList.remove("dropping"); });
+  document.addEventListener("drop", e => { const fs = e.dataTransfer && e.dataTransfer.files; document.body.classList.remove("dropping"); if (!fs || !fs.length) return; e.preventDefault(); takeFiles([...fs]); });
+  const _sm = setMode; setMode = function(m){ const was = mode && mode.type; _sm(m); if (was === "projBox" && state.libPend && state.project.length){ const ids = state.libPend; delete state.libPend; save(); libApply(ids); } };
+  if (map) map.on("zoomend moveend resize", () => { if (step === 4) renderLegends(); });
+  // 사업지를 고른 뒤 마법사에서 고른 보관함 자료 꺼내기
+  if (state.libPend && state.project.length){ const ids = state.libPend; delete state.libPend; save(); libApply(ids); }
+}
+
 /* ===== 시작 ===== */
 initMap();
 renderSnapBtns();
 loadOverlayImages();
 if (!state.project.length && nav.k !== "site") nav = { k:"site", tab:"in" };
 navGo(nav.k, nav.tab); hints();
+v7Init();
 </script>
 </body>
 </html>
