@@ -328,7 +328,7 @@ body.ovFocus #map{background:#ffffff}
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "7.5";
+const APP_VERSION = "7.7";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const KINDS = ["유치원","초등학교","중학교","고등학교","특수학교","기타"];
@@ -1360,7 +1360,8 @@ async function fileToImageBlob(file){
     const page = await pdf.getPage(pg), v0 = page.getViewport({ scale:1 }), scale = Math.min(4, 2600 / Math.max(v0.width, v0.height));
     const vp = page.getViewport({ scale }), c = document.createElement("canvas"); c.width = vp.width; c.height = vp.height;
     await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
-    return { blob: await new Promise(r => c.toBlob(r, "image/png")), w: c.width, h: c.height, name: file.name + (pdf.numPages > 1 ? ` (${pg}쪽)` : "") };
+    let vec = null; try { vec = await pdfVecPaths(lib, page, vp); } catch(e){ console.warn("PDF 선 뽑기 실패", e); }
+    return { blob: await new Promise(r => c.toBlob(r, "image/png")), w: c.width, h: c.height, name: file.name + (pdf.numPages > 1 ? ` (${pg}쪽)` : ""), vec };
   }
   if (!/^image\//.test(file.type)) throw new Error("PDF나 이미지(PNG·JPG) 파일만 붙일 수 있어요");
   const url = URL.createObjectURL(file);
@@ -1387,16 +1388,18 @@ async function addOverlayFile(file){
   ovUrl[id] = URL.createObjectURL(r.blob);
   const t = fitTarget();
   const pk = r.w >= r.h ? "A3L" : "A3P";
-  state.overlays.push({ id, name:r.name, center:t.center, widthM:Math.round(t.widthM), rot:0, opacity:0.85, show:true, aspect:r.w / r.h, clip: state.project.length > 0, paper:pk, scale:600 });
+  const nv = r.vec ? r.vec.filter(x => x.s >= 0.02).length : 0;
+  if (r.vec && r.vec.length){ try { await idb.put(id + ":vec", r.vec); vecCache[id] = r.vec; } catch(e){} }
+  state.overlays.push({ id, name:r.name, center:t.center, widthM:Math.round(t.widthM), rot:0, opacity:0.85, show:true, aspect:r.w / r.h, clip: state.project.length > 0, paper:pk, scale:600, ...(r.vec && r.vec.length ? { vec:r.vec.length } : {}) });
   ovSel = id; changed(); syncOverlays();
-  toast("지도에 붙였어요. 패널에서 위치·크기·회전을 맞춰 주세요", 4000);
+  toast(nv ? `지도에 붙였어요. 캐드에서 뽑은 PDF라 선 ${fmt(r.vec.length)}개를 찾았어요. 2점 맞추기로 자리를 맞춘 뒤 ‘PDF 선 고르기’로 외곽선을 가져오세요` : "지도에 붙였어요. 패널에서 위치·크기·회전을 맞춰 주세요", nv ? 7000 : 4000);
 }
 function overlayPanel(){
   return `<div class="card">
     <div class="row" style="justify-content:space-between"><b style="font-size:14px">배치도 · 도면 붙이기</b><button class="btn sm" data-act="addOverlay">DXF·PDF·이미지 올리기</button></div>
     ${state.overlays.length ? "" : `<button class="dropzone" data-act="addOverlay" style="margin-top:8px;width:100%">배치도 · 캐드 DXF · PDF · 이미지를 여기에 끌어다 놓아도 돼요<br><span style="font-size:12px">A4에 그린 배치도는 ‘2점 맞추기’로 사업지에 맞춰요</span></button>`}
     ${state.overlays.length ? state.overlays.map(o => { const sel = ovSel === o.id; return `<div style="border-top:1px dashed var(--line);margin-top:8px;padding-top:8px">
-      <div class="row"><label style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;font-size:13.5px"><input type="checkbox" data-ovshow="${o.id}" ${o.show?"checked":""}><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.name)}</span></label>${o.dxf ? `<button class="btn sm" data-dxfopen="${o.id}">DXF 레이어 가져오기</button>` : ""}
+      <div class="row"><label style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;font-size:13.5px"><input type="checkbox" data-ovshow="${o.id}" ${o.show?"checked":""}><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.name)}</span></label>${o.dxf ? `<button class="btn sm" data-dxfopen="${o.id}">DXF 레이어 가져오기</button>` : ""}${o.vec ? `<button class="btn sm ${mode && mode.type === "vecPick" && mode.id === o.id ? "on" : ""}" data-vecstart="${o.id}" title="PDF 안의 선을 눌러 사업지 경계 등으로 가져오기">PDF 선 고르기</button>` : ""}
         <button class="btn sm ${sel ? "on" : ""}" data-ovsel="${o.id}">${sel ? "맞추는 중" : "맞추기"}</button><button class="x" data-delov="${o.id}" aria-label="지우기">✕</button></div>
       ${sel ? `<div class="stg" style="margin-top:8px">
         <span>위치</span><div class="row"><button class="btn sm ${on("ovMove", o.id)}" data-ovmove="${o.id}">지도에서 가운데 찍기</button><button class="btn sm" data-ovfit="${o.id}">사업지에 맞추기</button></div>
@@ -1419,6 +1422,7 @@ function ovLocal(o, p){ const k = Math.cos(o.center[1] * Math.PI / 180) * 111320
 function ovToImg(o, p){ const [X, Y] = ovLocal(o, p), r = (o.rot || 0) * Math.PI / 180, W = o.widthM, H = W / (o.aspect || 1);
   const x = X * Math.cos(r) + Y * Math.sin(r), y = -X * Math.sin(r) + Y * Math.cos(r); return [x / W + 0.5, y / H + 0.5]; }
 function ov2ptSolve(o, A, B){   // A,B: {img:[u,v], map:[lng,lat]}
+  o.aligned = true;
   const H0 = o.widthM / (o.aspect || 1), iv = [(B.img[0] - A.img[0]) * o.widthM, (B.img[1] - A.img[1]) * H0];
   const k = Math.cos(A.map[1] * Math.PI / 180) * 111320, mv = [(B.map[0] - A.map[0]) * k, -(B.map[1] - A.map[1]) * 110574];
   const li = Math.hypot(iv[0], iv[1]), lm = Math.hypot(mv[0], mv[1]); if (li < 0.01 || lm < 0.5) return false;
@@ -1767,6 +1771,7 @@ function redraw(){
     m.on("dragend", () => { const q = m.getLatLng(); p.box = [q.lng, q.lat]; save(); redraw(); });
   });
   try { geoHandles(); } catch(e){ console.error(e); }
+  try { vecDraw(); } catch(e){ console.error(e); }
   try { applyOvFocus(); } catch(e){}
   if (mode && mode.type === "lineEdit"){ const l = findSL(mode.id);
     if (l && l.pts.length){
@@ -2190,6 +2195,7 @@ function toggleSnap(){ snapOn = !snapOn; ls("eduMap.snap", snapOn); renderSnapBt
 /* ===== 지도 클릭 ===== */
 async function onMapClick(lng, lat, ev){
   map.closePopup();
+  if (mode && mode.type === "vecPick"){ vecClick(lng, lat); return; }
   if (mode && SNAP_MODES.includes(mode.type) && !(ev && ev.shiftKey)){ const sn = snapPoint(lng, lat); if (sn){ lng = sn.pt[0]; lat = sn.pt[1]; } }
   $("#results").style.display = "none";
   if (mode && (mode.type === "lineEdit" || mode.type === "geoEdit")) return;
@@ -2296,6 +2302,7 @@ function updateModeText(){
     m.type === "project" ? "사업지 필지를 눌러 넣고 빼세요" :
     m.type === "school" ? `${sName(s)} 교지 필지를 눌러 넣고 빼세요` :
     m.type === "autoRoute" ? `${SAFE_LINES[m.sub]} 자동: ${drawPts.length === 0 ? "출발점을 누르세요" : drawPts.length === 1 ? "도착점(또는 경유지)을 누르세요" : `경유 ${drawPts.length - 2}곳 · 더 찍거나 ‘완료’를 누르면 도로를 따라 그려요`} (진출입구에 자석으로 붙어요)` :
+    m.type === "vecPick" ? "가져올 선을 누르세요 (여러 개 가능) · 다 골랐으면 패널에서 ‘사업지 경계로’ 등을 누르세요" :
     m.type === "geoEdit" ? "흰 점은 끌어 옮기기 · 주황 점을 끌면 새 점 · 파란 마름모를 끌면 휘기 · 다 했으면 ‘완료’" :
     m.type === "lineEdit" ? "점을 끌어 옮기세요 · 점 사이 작은 점을 끌면 새 점 · 점을 두 번 누르면 지우기 · 다 했으면 ‘완료’" :
     m.type === "facDraw" ? `${(state.facs.find(f => f.id === m.id) || {}).name || "시설"} 영역 모서리를 차례로 누르세요 · ${drawPts.length}점 · 첫 점을 누르거나 ‘완료’로 닫기 (자석 켜짐)` :
@@ -2571,7 +2578,7 @@ function renderPanel(){
   else { const it = checkItems().find(i => i.id === k); body = it ? it.body() : ""; if (/^safe(\d|$|Ent|Route)/.test(k)) body = hkSafeCard() + body; }
   if (nav.tab !== "fig" && ["school","park","cult"].includes(k)) body = (body || "") + drawnCard(k);
   if (nav.tab !== "fig" && ["safe","safe2","safe5"].includes(k)) body = ovFocusCard() + body;
-  Pn.innerHTML = navHead() + geoEditCard() + icoEditCard() + (k === "home" || k === "site" || k === "export" ? backupBanner() : "") + body + (k === "home" ? "" : navFoot());
+  Pn.innerHTML = navHead() + vecCard() + geoEditCard() + icoEditCard() + (k === "home" || k === "site" || k === "export" ? backupBanner() : "") + body + (k === "home" ? "" : navFoot());
   try { addSecChips(); } catch(e){}
 }
 /* ===== 한눈에 보기 ===== */
@@ -2685,7 +2692,7 @@ function exportCenter(){
   return `<div class="card fcard"><div class="row" style="justify-content:space-between"><b class="ft">PPT에 넣을 그림</b><span class="muted">${nOn}개 항목</span></div>
     ${X.map(x => `<div class="drow"><label style="${x.has ? "" : "opacity:.55"}"><input type="checkbox" data-pptskip="${x.e.id}" ${x.has && !skip.includes(x.e.id) ? "checked" : ""} ${x.has ? "" : "disabled"}><span class="muted" style="min-width:58px">${esc(secShort(x.e.sec, x.e.short))}</span>${esc(x.e.short)}</label>${x.has ? `<button class="btn sm" data-nav="${EV_NAV[x.e.id] || "home"}" data-ntab="fig">그림</button>` : `<span class="muted">비어 있음</span>`}</div>`).join("") || `<div class="muted">대상학교를 넣으면 목록이 생겨요.</div>`}
     <div class="drow"><label style="${schHas() ? "" : "opacity:.55"}"><input type="checkbox" data-pptskip="sched" ${schHas() && !skip.includes("sched") ? "checked" : ""} ${schHas() ? "" : "disabled"}><span class="muted" style="min-width:58px">4.1.4</span>공사일정표</label><button class="btn sm" data-nav="safeSch">${schHas() ? "보기" : "넣기"}</button></div>
-    <div class="row" style="gap:6px;font-size:13px;margin-top:8px"><span>PPT 크기</span><div class="seg" style="flex:1">${[["wide","16:9 와이드"],["a4","A4 가로"]].map(([k, n]) => `<button class="${(state.print.pptSize || "wide") === k ? "on" : ""}" data-pptsize="${k}">${n}</button>`).join("")}</div></div>
+    <div class="row" style="gap:6px;font-size:13px;margin-top:8px"><span>PPT 크기</span><div class="seg" style="flex:1">${[["wide","16:9 와이드"],["a4","A4 가로"]].map(([k, n]) => `<button class="${(state.print.pptSize || "wide") === k ? "on" : ""}" data-pptsize="${k}">${n}</button>`).join("")}</div></div>${pptFsBox()}
     <button class="btn pri full" data-act="exportPPT" style="height:46px;margin-top:8px;font-size:15px">PPT로 내보내기 (도형 편집 · 그룹)</button>
     <div class="muted" style="margin-top:4px">바탕지도는 그림으로, 선·글씨·기호는 하나씩 고칠 수 있는 도형으로 들어가요.${ly.withBase !== false && tileCORS !== true ? " ‘이 탭 공유’ 창이 뜨면 이 탭을 고르고 [공유]를 눌러 주세요." : ""}</div></div>
   <div class="lab" style="margin-top:4px">결과 표 · 문장</div>
@@ -3015,7 +3022,7 @@ function panel4(){
   <div class="muted">지도를 끌고 확대해서 틀 안에 맞춘 뒤 저장하세요.${ly.withBase !== false && tileCORS !== true ? " 저장할 때 ‘이 탭 공유’ 창이 뜨면 이 탭을 고르고 [공유]를 눌러 주세요. 바탕지도만 찍고 바로 멈춰요." : ""} PPT는 바탕지도를 그림으로, 선·글씨·기호는 하나씩 고칠 수 있는 도형으로 넣어요.</div>
   <div class="grid2 next"><button class="btn" data-act="fit">전체 맞추기</button><button class="btn" data-export="svg">SVG 저장</button></div>
   <button class="btn pri full" data-export="png" style="height:46px;font-size:15px">그림(PNG)으로 저장</button>
-  <div class="row" style="gap:6px;font-size:13px"><span>PPT 크기</span><div class="seg" style="flex:1">${[["wide","16:9 와이드"],["a4","A4 가로"]].map(([k, n]) => `<button class="${(pr.pptSize || "wide") === k ? "on" : ""}" data-pptsize="${k}">${n}</button>`).join("")}</div></div>
+  <div class="row" style="gap:6px;font-size:13px"><span>PPT 크기</span><div class="seg" style="flex:1">${[["wide","16:9 와이드"],["a4","A4 가로"]].map(([k, n]) => `<button class="${(pr.pptSize || "wide") === k ? "on" : ""}" data-pptsize="${k}">${n}</button>`).join("")}</div></div>${pptFsBox()}
   <button class="btn full" data-act="exportPPT" style="height:42px">PPT로 내보내기 (평가항목별 그림, 도형 편집 · 그룹)</button>
   <div class="card" style="font-size:13px"><b>회사 스타일</b><div class="row" style="gap:6px;margin-top:6px"><select class="inp sm" style="flex:1" data-spsel aria-label="저장된 스타일">${Object.keys(stylePresets()).map(k => `<option>${esc(k)}</option>`).join("") || `<option value="">저장된 스타일 없음</option>`}</select><button class="btn sm" data-act="spApply">적용</button><button class="btn sm" data-act="spDel">지우기</button></div>
     <div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-act="spSave">지금 모양을 스타일로 저장</button><button class="btn sm" data-act="spExport">파일로</button><button class="btn sm" data-act="spImport">파일에서</button></div>
@@ -3450,7 +3457,16 @@ function setFsz(k, v){
 const stylePresets = () => ls("eduMap.stylePresets") || {};
 function takeStyle(){ return { styles: JSON.parse(JSON.stringify(styles)), icons: JSON.parse(JSON.stringify(iconSt)), leg:{ ...(state.print.leg || {}) }, rnSize:state.print.rnSize, bnSize:state.print.bnSize, postStyle:state.safety.postStyle, bubbleCols:state.safety.bubbleCols, lblfs: getComputedStyle(document.documentElement).getPropertyValue("--lblfs"),
   print: Object.fromEntries(SET_PRINT_KEYS.filter(k => state.print[k] !== undefined).map(k => [k, JSON.parse(JSON.stringify(state.print[k]))])), ui:{ font:ui.font, lbl:ui.lbl } }; }
-const SET_PRINT_KEYS = ["legFs","titleFs","lblMode","neonW","deco","legHide","paper","pw","ph","declutter","pptSize","walkLbl"];
+let decoTxtPx = null;
+const PPT_FS_DEF = { on:true, road:9, txt:10, leg:10, title:10 };
+const pptFsOf = () => ({ ...PPT_FS_DEF, ...(state.print.pptFs || {}) });
+function pptFsBox(){
+  const F = pptFsOf(), num = (k, lab) => `<label class="row" style="gap:4px;font-size:13px;flex-wrap:nowrap"><span style="min-width:${lab.length > 3 ? 64 : 44}px">${lab}</span><input class="inp sm" type="number" min="5" max="40" step="0.5" value="${F[k]}" data-pptfs="${k}" style="width:62px" ${F.on ? "" : "disabled"} aria-label="${lab} 글씨 크기(pt)"><span class="muted">pt</span></label>`;
+  return `<div class="card" style="font-size:13px;margin-top:8px;padding:10px 12px"><div class="row" style="justify-content:space-between"><b>PPT 글씨 크기</b><div class="seg"><button class="${F.on ? "on" : ""}" data-pptfson="1">pt로 정하기</button><button class="${F.on ? "" : "on"}" data-pptfson="0">화면 비율대로</button></div></div>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px;margin-top:8px;${F.on ? "" : "opacity:.5"}">${num("road", "도로명")}${num("txt", "지도 글씨")}${num("leg", "범례·축척")}${num("title", "그림 제목")}</div>
+    <div class="muted" style="margin-top:6px;font-size:12px">${F.on ? "지도 글씨는 학교·시설 이름, 이격거리, 안내 박스 글씨예요. 그림 크기와 상관없이 PPT에서 이 크기로 들어가요." : "화면에 보이는 크기를 PPT 슬라이드 크기에 맞춰 늘리거나 줄여요."} <button class="btn sm" data-act="pptFsReset">기본값 (도로명 9 · 나머지 10)</button></div></div>`;
+}
+const SET_PRINT_KEYS = ["pptFs","legFs","titleFs","lblMode","neonW","deco","legHide","paper","pw","ph","declutter","pptSize","walkLbl"];
 function putStyle(p){ if (!p) return; if (p.styles) Object.keys(p.styles).forEach(k => { if (styles[k]) styles[k] = { ...styles[k], ...p.styles[k] }; }); saveStyles(); if (p.icons){ iconSt = p.icons; saveIcons(); }
   if (p.leg) state.print.leg = { ...p.leg }; ["rnSize","bnSize"].forEach(k => { if (p[k]) state.print[k] = p[k]; }); if (p.postStyle) state.safety.postStyle = p.postStyle; if (p.bubbleCols) state.safety.bubbleCols = p.bubbleCols;
   if (p.print) Object.entries(p.print).forEach(([k, v]) => { if (SET_PRINT_KEYS.includes(k)) state.print[k] = JSON.parse(JSON.stringify(v)); });
@@ -3622,7 +3638,7 @@ function legendPrims(li, x0, y0){
   else li.forEach(([nm, k], i) => { const c = mode === "col" ? Math.floor(i / rows) : i % cols, r = mode === "col" ? i % rows : Math.floor(i / cols); put(nm, k, c, r); });
   return P;
 }
-function northPrims(x, y){ return [{ t:"text", x, y:y + 11, text:"N", size:12, color:"#1F2328", bold:true, anchor:"middle" }, { t:"poly", pts:[[x, y + 14], [x + 7, y + 36], [x, y + 32], [x - 7, y + 36]], fill:"#E03131" }, { t:"poly", pts:[[x, y + 58], [x + 7, y + 36], [x, y + 40], [x - 7, y + 36]], fill:"#1C3FD6" }, { t:"text", x, y:y + 71, text:"S", size:12, color:"#1F2328", bold:true, anchor:"middle" }]; }
+function northPrims(x, y){ return [{ t:"text", x, y:y + 11, text:"N", size:(decoTxtPx || 12), color:"#1F2328", bold:true, anchor:"middle" }, { t:"poly", pts:[[x, y + 14], [x + 7, y + 36], [x, y + 32], [x - 7, y + 36]], fill:"#E03131" }, { t:"poly", pts:[[x, y + 58], [x + 7, y + 36], [x, y + 40], [x - 7, y + 36]], fill:"#1C3FD6" }, { t:"text", x, y:y + 71, text:"S", size:(decoTxtPx || 12), color:"#1F2328", bold:true, anchor:"middle" }]; }
 function decoPrims(sc, W, H){
   const P = [];
   if (state.print.title){ const tfs = state.print.titleFs || 14, sub = figSub(), sfs = Math.max(9, tfs - 4), tw = Math.max(textW(state.print.title, tfs), sub ? textW(sub, sfs) : 0) + 24, th = tfs + 14, th2 = th + (sub ? sfs + 4 : 0);
@@ -3652,7 +3668,7 @@ function decoPlace(W, H, Lo, px){
 }
 function scalePrims(sx, sy, px, nice){
   return [{ g:"축척", t:"rect", x:sx, y:sy, w:px / 2, h:6, fill:"#1F2328", stroke:"#1F2328", sw:0.8 }, { t:"rect", x:sx + px / 2, y:sy, w:px / 2, h:6, fill:"#FFFFFF", stroke:"#1F2328", sw:0.8 },
-    { t:"text", x:sx, y:sy - 5, text:"0", size:11, color:"#1F2328", anchor:"start" }, { t:"text", x:sx + px, y:sy - 5, text: nice >= 1000 ? nice / 1000 + "km" : nice + "m", size:11, color:"#1F2328", anchor:"end" }];
+    { t:"text", x:sx, y:sy - 5, text:"0", size:(decoTxtPx || 11), color:"#1F2328", anchor:"start" }, { t:"text", x:sx + px, y:sy - 5, text: nice >= 1000 ? nice / 1000 + "km" : nice + "m", size:(decoTxtPx || 11), color:"#1F2328", anchor:"end" }];
 }
 function decoSeg(){
   const v = state.print.deco || "std";
@@ -4577,7 +4593,8 @@ const ITEM_GROUP = it => it.g || (it.k === "secline" ? "단면선" : it.sk === "
 async function pptShapes(pptx, sl, box){
   sl = groupSlide(sl);
   const sc = lastScene, sz = map.getSize(), W = sz.x, H = sz.y, f = box.w / W, PT = 72, FONT = pptFont();
-  const lfs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--lblfs")) || 12;
+  const PF = pptFsOf(), toPx = v => v / (f * PT);
+  const lfs = PF.on ? toPx(PF.txt) : (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--lblfs")) || 12);
   const P = c => map.latLngToContainerPoint([c[1], c[0]]);
   const X = px => box.x + px * f, Y = py => box.y + py * f, pt = px => Math.max(0.25, Math.round(px * f * PT * 100) / 100);
   const b = map.getBounds(), pd = (b.getEast() - b.getWest()) * 0.01, bbox = [b.getWest() - pd, b.getSouth() - pd, b.getEast() + pd, b.getNorth() + pd];
@@ -4627,7 +4644,7 @@ async function pptShapes(pptx, sl, box){
     const fpt = v => Math.round(v * f * PT * 10) / 10;
     if (lb.k === "box"){ const lines = String(lb.text).split("\n"), w = Math.max(...lines.map(t => textW(t, lfs))) + 18, h = lines.length * (lfs + 4) + 8;
       sl.addText(lines.join("\n"), { x:X(p.x - w/2), y:Y(y - h/2), w:w * f, h:h * f, fontFace:FONT, fontSize:fpt(lfs), color:"1F2328", fill:{ color:"FFFFFF" }, line:{ color:"1F2328", width:0.75 }, align:"center", valign:"middle", margin:0 }); return; }
-    if (lb.k === "rname" || lb.k === "bname"){ const fs = lb.k === "rname" ? (state.print.rnSize || lfs) : (state.print.bnSize || lfs - 1), w = textW(lb.text, fs) + 10, h = fs + 6;
+    if (lb.k === "rname" || lb.k === "bname"){ const fs = PF.on ? toPx(lb.k === "rname" ? PF.road : PF.txt) : lb.k === "rname" ? (state.print.rnSize || lfs) : (state.print.bnSize || lfs - 1), w = textW(lb.text, fs) + 10, h = fs + 6;
       sl.addText(lb.text, { x:X(p.x - w/2), y:Y(y - h/2), w:w * f, h:h * f, fontFace:FONT, fontSize:fpt(fs), color: lb.k === "rname" ? "343A40" : "495057", glow:{ size:Math.max(2, neonW() * 1.1), opacity:1, color:"FFFFFF" }, align:"center", valign:"middle", margin:0, ...(lb.rot ? { rotate:lb.rot } : {}) }); return; }
     if (lb.k === "pnum"){ sl.addText(lb.text, { shape:pptx.ShapeType.ellipse, x:X(p.x - 11), y:Y(y - 11), w:22 * f, h:22 * f, fill:{ color:"FFFFFF" }, line:{ color:"1F2328", width:1.5 }, fontFace:FONT, fontSize:fpt(12), bold:true, color:"1F2328", align:"center", valign:"middle", margin:0 }); return; }
     if (lb.k === "ntext"){ const w = textW(lb.text, lfs) + 10, h = lfs + 6;
@@ -4650,7 +4667,9 @@ async function pptShapes(pptx, sl, box){
     sl.G = `${p.name} 말풍선`;
     await primsPpt(pptx, sl, postPrims(p, a, bp, lfs).P, box.x, box.y, f, pptIcon);
   }
-  await primsPpt(pptx, sl, decoPrims(sc, W, H), box.x, box.y, f, pptIcon);
+  { const keep = { lf:state.print.legFs, tf:state.print.titleFs };
+    if (PF.on){ state.print.legFs = toPx(PF.leg); state.print.titleFs = toPx(PF.title); decoTxtPx = toPx(PF.leg); }
+    try { await primsPpt(pptx, sl, decoPrims(sc, W, H), box.x, box.y, f, pptIcon); } finally { state.print.legFs = keep.lf; state.print.titleFs = keep.tf; decoTxtPx = null; } }
 }
 async function exportPPT(){
   if (!map || pptBusy) return;
@@ -4900,6 +4919,9 @@ document.addEventListener("click", async e => {
   if (v71Click(t, d)) return;
   if (v72Click(t, d)) return;
   if (v73Click(t, d)) return;
+  if (d.pptfson !== undefined){ state.print.pptFs = { ...pptFsOf(), on:d.pptfson === "1" }; save(); renderPanel(); return; }
+  if (d.act === "pptFsReset"){ state.print.pptFs = { ...PPT_FS_DEF }; save(); renderPanel(); toast("PPT 글씨: 도로명 9pt · 나머지 10pt"); return; }
+  if (v77Click(t, d)) return;
   if (v75Click(t, d)) return;
   if (v74Click(t, d)) return;
   if (d.ntab){ navGo(nav.k, d.ntab); return; }
@@ -5101,6 +5123,8 @@ document.addEventListener("change", e => {
   if (v73Change(t, d)) return;
   if (v74Change(t, d)) return;
   if (v75Change(t, d)) return;
+  if (v77Change(t, d)) return;
+  if (d.pptfs){ const v = Number(t.value); if (v >= 5 && v <= 40){ state.print.pptFs = { ...pptFsOf(), [d.pptfs]:v }; save(); } else toast("5~40pt 사이로 넣어 주세요"); return; }
   if (d.ovopn){ const o = state.overlays.find(x => x.id === d.ovopn); if (o){ o.opacity = Math.max(0.05, Math.min(1, Number(t.value) || 0.85)); changed(); } return; }
   if (d.show !== undefined){ const s = findS(d.show); if (s){ showOf(s)[d.k] = t.checked; changed(); } return; }
   if (d.stylekey !== undefined){ styleKey = t.value; renderLayerPanel(); return; }
@@ -6195,6 +6219,132 @@ function v75Change(t, d){
   return false;
 }
 
+/* ===================== v7.7 : 캐드에서 뽑은 PDF의 선 ===================== */
+// 페이지의 선(벡터 경로)을 뽑아 이미지 좌표(0~1)로 돌려줌
+async function pdfVecPaths(lib, page, vp){
+  const ops = await page.getOperatorList(), O = lib.OPS, W = vp.width, H = vp.height;
+  const mul = (m, n) => [m[0]*n[0] + m[2]*n[1], m[1]*n[0] + m[3]*n[1], m[0]*n[2] + m[2]*n[3], m[1]*n[2] + m[3]*n[3], m[0]*n[4] + m[2]*n[5] + m[4], m[1]*n[4] + m[3]*n[5] + m[5]];
+  let ctm = vp.transform.slice(); const stack = [], out = []; let total = 0;
+  const T = (x, y) => [(ctm[0]*x + ctm[2]*y + ctm[4]) / W, (ctm[1]*x + ctm[3]*y + ctm[5]) / H];
+  const bez = (a, c1, c2, b) => { const r = []; for (let s = 1; s <= 6; s++){ const t = s / 6, u = 1 - t; r.push([u*u*u*a[0] + 3*u*u*t*c1[0] + 3*u*t*t*c2[0] + t*t*t*b[0], u*u*u*a[1] + 3*u*u*t*c1[1] + 3*u*t*t*c2[1] + t*t*t*b[1]]); } return r; };
+  for (let i = 0; i < ops.fnArray.length; i++){
+    const fn = ops.fnArray[i], A = ops.argsArray[i];
+    if (fn === O.save) stack.push(ctm.slice());
+    else if (fn === O.restore){ if (stack.length) ctm = stack.pop(); }
+    else if (fn === O.transform) ctm = mul(ctm, A);
+    else if (fn === O.paintFormXObjectBegin){ stack.push(ctm.slice()); if (A && A[0]) ctm = mul(ctm, A[0]); }
+    else if (fn === O.paintFormXObjectEnd){ if (stack.length) ctm = stack.pop(); }
+    else if (fn === O.constructPath){
+      const [cmds, a] = A; let k = 0, cur = null, sub = null, cu = null;
+      const end = closed => { if (sub && sub.length > 1){ out.push({ p:sub, c:closed }); total += sub.length; } sub = null; };
+      for (const c of cmds){
+        if (c === O.moveTo){ end(false); cu = [a[k++], a[k++]]; sub = [T(...cu)]; }
+        else if (c === O.lineTo){ cu = [a[k++], a[k++]]; (sub || (sub = [])).push(T(...cu)); }
+        else if (c === O.curveTo){ const c1 = [a[k++], a[k++]], c2 = [a[k++], a[k++]], b = [a[k++], a[k++]]; if (cu && sub) bez(cu, c1, c2, b).forEach(q => sub.push(T(...q))); cu = b; }
+        else if (c === O.curveTo2){ const c2 = [a[k++], a[k++]], b = [a[k++], a[k++]]; if (cu && sub) bez(cu, cu, c2, b).forEach(q => sub.push(T(...q))); cu = b; }
+        else if (c === O.curveTo3){ const c1 = [a[k++], a[k++]], b = [a[k++], a[k++]]; if (cu && sub) bez(cu, c1, b, b).forEach(q => sub.push(T(...q))); cu = b; }
+        else if (c === O.closePath){ if (sub && sub.length > 2){ out.push({ p:sub, c:true }); total += sub.length; } sub = cu ? [T(...cu)] : null; sub = null; }
+        else if (c === O.rectangle){ end(false); const x = a[k++], y = a[k++], w = a[k++], h = a[k++]; out.push({ p:[T(x, y), T(x + w, y), T(x + w, y + h), T(x, y + h)], c:true }); total += 4; }
+      }
+      end(false);
+      if (total > 600000) break;
+    }
+  }
+  return vecTidy(out);
+}
+// 끝점이 닿은 선을 이어 붙이고, 아주 작은 조각(글자 등)은 표시만 따로
+function vecJoin(paths, tol){
+  const open = paths.filter(x => !x.c).map(x => x.p.slice()), done = paths.filter(x => x.c).map(x => ({ p:x.p, c:true }));
+  const key = q => Math.round(q[0] / tol) + "," + Math.round(q[1] / tol), idx = new Map();
+  const put = (q, i, e) => { const k = key(q); (idx.get(k) || idx.set(k, []).get(k)).push([i, e]); };
+  const near = q => { const [kx, ky] = key(q).split(",").map(Number), r = []; for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++){ const L0 = idx.get((kx + dx) + "," + (ky + dy)); if (L0) r.push(...L0); } return r; };
+  open.forEach((p, i) => { put(p[0], i, 0); put(p[p.length - 1], i, 1); });
+  const used = new Uint8Array(open.length), d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  for (let i = 0; i < open.length; i++){ if (used[i]) continue; used[i] = 1; let ch = open[i].slice(), grow = true;
+    while (grow){ grow = false;
+      for (const side of [1, 0]){ const tip = side ? ch[ch.length - 1] : ch[0];
+        const hit = near(tip).find(([j, e]) => !used[j] && d(tip, e ? open[j][open[j].length - 1] : open[j][0]) <= tol);
+        if (hit){ const [j, e] = hit; used[j] = 1; let s = open[j].slice(); if (side ? e === 1 : e === 0) s.reverse(); ch = side ? [...ch, ...s.slice(1)] : [...s.slice(0, -1), ...ch]; grow = true; } } }
+    const cl = ch.length > 3 && d(ch[0], ch[ch.length - 1]) <= tol; done.push({ p: cl ? ch.slice(0, -1) : ch, c:cl }); }
+  return done;
+}
+function vecTidy(paths){
+  const R = v => Math.round(v * 1e6) / 1e6, seen = new Set(), out = [];
+  vecJoin(paths, 0.0008).forEach(x => { const p = x.p.map(q => [R(q[0]), R(q[1])]), k = p.length + ":" + p[0] + ":" + p[p.length - 1] + ":" + p[Math.floor(p.length / 2)]; if (seen.has(k)) return; seen.add(k);
+    let x0 = 1, y0 = 1, x1 = 0, y1 = 0; p.forEach(q => { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); });
+    out.push({ p, c:x.c, s:Math.round(Math.hypot(x1 - x0, y1 - y0) * 1e5) / 1e5 }); });
+  return out;
+}
+
+/* ---- 선 고르기 ---- */
+let vecCache = {}, vecSel = [], vecHover = null;
+async function vecOf(o){ if (vecCache[o.id]) return vecCache[o.id]; let v = null; try { v = await idb.get(o.id + ":vec"); } catch(e){} return (vecCache[o.id] = v || []); }
+const vecMin = () => Number(state.vecMin ?? 2) / 100;
+const vecVisible = (V, onlyClosed) => V.map((x, i) => [x, i]).filter(([x]) => x.s >= vecMin() && (!onlyClosed || x.c));
+async function vecStart(id){ const o = state.overlays.find(x => x.id === id); if (!o) return; const V = await vecOf(o); if (!V.length){ toast("이 PDF에서 선을 찾지 못했어요 (스캔·그림 PDF일 수 있어요)", 5000); return; }
+  vecSel = []; if (nav.k !== "site") navGo("site", "in"); setMode({ type:"vecPick", id }); try { const k = Math.cos(o.center[1] * Math.PI / 180) * 111320, H = o.widthM / (o.aspect || 1); map.fitBounds([[o.center[1] - H / 2 / 110574, o.center[0] - o.widthM / 2 / k], [o.center[1] + H / 2 / 110574, o.center[0] + o.widthM / 2 / k]], { padding:[30, 30] }); } catch(e){} renderPanel(); redraw(); }
+function vecDraw(){
+  if (!mode || mode.type !== "vecPick") return; const o = state.overlays.find(x => x.id === mode.id), V = vecCache[mode.id]; if (!o || !V) return;
+  const rC = L.canvas({ padding:0.2 }), sel = new Set(vecSel), ll = uv => { const g = imgToMap(o, uv); return [g[1], g[0]]; };
+  vecVisible(V, state.vecClosed).forEach(([x, i]) => { if (sel.has(i)) return; L.polyline((x.c ? [...x.p, x.p[0]] : x.p).map(ll), { renderer:rC, interactive:false, color: x.c ? "#1c7ed6" : "#868e96", weight: i === vecHover ? 4 : 1.4, opacity: i === vecHover ? 1 : 0.85 }).addTo(drawLayer); });
+  vecSel.forEach(i => { const x = V[i]; if (!x) return; L.polyline((x.c ? [...x.p, x.p[0]] : x.p).map(ll), { renderer:rC, interactive:false, color:"#e8590c", weight:4, opacity:1 }).addTo(drawLayer); });
+}
+function vecNearest(lng, lat){
+  const o = state.overlays.find(x => x.id === mode.id), V = vecCache[mode.id]; if (!o || !V) return null;
+  const c = map.latLngToContainerPoint([lat, lng]), px = uv => { const g = imgToMap(o, uv); return map.latLngToContainerPoint([g[1], g[0]]); };
+  let best = null;
+  vecVisible(V, state.vecClosed).forEach(([x, i]) => { const pts = x.c ? [...x.p, x.p[0]] : x.p; let a = px(pts[0]);
+    for (let j = 1; j < pts.length; j++){ const b = px(pts[j]), dx = b.x - a.x, dy = b.y - a.y, t = Math.max(0, Math.min(1, ((c.x - a.x) * dx + (c.y - a.y) * dy) / (dx * dx + dy * dy || 1))), dd = Math.hypot(a.x + dx * t - c.x, a.y + dy * t - c.y);
+      if (dd < 9 && (!best || dd < best.d || (Math.abs(dd - best.d) < 1 && x.s < V[best.i].s))) best = { i, d:dd }; a = b; } });
+  return best && best.i;
+}
+function vecClick(lng, lat){ const i = vecNearest(lng, lat); if (i === null || i === undefined){ toast("선 위를 눌러 주세요"); return; } vecSel = vecSel.includes(i) ? vecSel.filter(x => x !== i) : [...vecSel, i]; redraw(); renderPanel(); }
+const VEC_AS = { proj:"사업지 경계", school:"교지 (대상학교)", park:"공원·녹지 (신설)", cult:"도서관·문화·체육 (신설)", panel:"가설방음판넬", roof:"철제 지붕형 보행통로", inRoute:"공사차량 진입경로", outRoute:"공사차량 진출경로" };
+function vecCard(){
+  if (!mode || mode.type !== "vecPick") return ""; const o = state.overlays.find(x => x.id === mode.id), V = vecCache[mode.id] || []; if (!o) return "";
+  const n = vecVisible(V, state.vecClosed).length, sel = vecSel.map(i => V[i]).filter(Boolean), allClosed = sel.length && sel.every(x => x.c);
+  return `<div class="card" id="vecCard" style="border-color:#ffc078;background:#fff9f2"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><b style="font-size:14px">PDF 선 고르기 · ${esc(o.name)}</b><button class="btn sm" data-act="vecDone">끝내기</button></div>
+    <div class="muted" style="margin-top:4px;font-size:12px;line-height:1.6">지도에서 선을 누르면 주황색으로 골라져요 (다시 누르면 빠져요). <span style="color:#1c7ed6">파란 선</span>은 닫힌 선, 회색은 열린 선이에요. 지금 보이는 선 ${n}개.</div>
+    <label class="row" style="gap:6px;margin-top:8px;font-size:13px"><input type="checkbox" data-vecclosed ${state.vecClosed ? "checked" : ""}>닫힌 선만 보기 (외곽선 찾을 때)</label>
+    <div class="row" style="gap:6px;margin-top:6px;flex-wrap:nowrap;font-size:13px"><span style="min-width:80px">작은 선 숨기기</span><input type="range" min="0" max="20" step="0.5" value="${Number(state.vecMin ?? 2)}" data-vecmin style="flex:1" aria-label="작은 선 숨기기"><span class="muted" style="min-width:40px">${Number(state.vecMin ?? 2)}%</span></div>
+    <div class="muted" style="font-size:12px">글자·해치 같은 작은 조각을 숨겨요. 외곽선이 안 보이면 값을 낮춰 주세요.</div>
+    <div class="lab" style="margin-top:10px">고른 선 ${sel.length}개${sel.length ? ` · ${allClosed ? "모두 닫힌 선" : "열린 선 포함"}` : ""}</div>
+    ${sel.length ? `<div class="row" style="gap:4px;flex-wrap:wrap">${Object.entries(VEC_AS).map(([k, v]) => `<button class="btn sm ${["proj","school","park","cult"].includes(k) ? "pri" : ""}" data-vecas="${k}">${v}로</button>`).join("")}</div>
+      <div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-act="vecClear">고른 것 비우기</button></div>
+      <div class="muted" style="margin-top:4px;font-size:12px">면(사업지·교지·공원·시설)으로 가져올 때 열린 선 여러 개를 고르면 끝끼리 이어 붙여서 하나로 만들어요.</div>` : ""}
+    ${o.aligned ? "" : `<div class="card" style="background:#fff3bf;border-color:#ffe066;font-size:12.5px;margin-top:8px">아직 2점 맞추기를 안 했어요. 도면을 사업지에 맞춘 뒤 가져와야 자리가 정확해요.</div>`}</div>`;
+}
+function vecImport(k){
+  const o = state.overlays.find(x => x.id === mode.id), V = vecCache[mode.id] || [], sel = vecSel.map(i => V[i]).filter(Boolean); if (!o || !sel.length) return;
+  const toG = p => p.map(uv => imgToMap(o, uv)).map(q => [Math.round(q[0] * 1e7) / 1e7, Math.round(q[1] * 1e7) / 1e7]), ph = newPh();
+  if (["panel","roof","inRoute","outRoute"].includes(k)){ sel.forEach(x => state.safety.lines.push({ id:uid("sl"), type:k, pts:toG(x.c ? [...x.p, x.p[0]] : x.p), ph })); }
+  else {
+    let rings = sel.filter(x => x.c).map(x => x.p);
+    const opens = sel.filter(x => !x.c); if (opens.length){ const J = vecJoin(opens.map(x => ({ p:x.p, c:false })), 0.01); J.forEach(x => { const d = Math.hypot(x.p[0][0] - x.p[x.p.length - 1][0], x.p[0][1] - x.p[x.p.length - 1][1]); if (x.c || (x.p.length > 2 && d < 0.03)) rings.push(x.p); }); if (!rings.length){ toast("고른 선이 닫히지 않아서 면으로 만들 수 없어요. 둘레가 이어지게 선을 더 골라 주세요", 6000); return; } }
+    const polys = rings.map(r => { const g = toG(r); return { type:"Polygon", coordinates:[[...g, g[0]]] }; });
+    polys.forEach(g => { const pn = "draw_" + uid("");
+      if (k === "proj") state.project.push({ pnu:pn, addr:"PDF 사업지 경계", jimok:"", zone:"", jiga:null, geom:g });
+      else if (k === "school"){ const s = state.schools[0]; if (s) s.parcels.push({ pnu:pn, addr:"PDF 교지", jimok:"", zone:"", jiga:null, geom:g }); }
+      else state.facs.push({ id:uid("f"), type:k, name:`${k === "park" ? "공원" : "시설"}(신설)`, planned:true, parcels:[{ pnu:pn, addr:"PDF", jimok:"", zone:"", jiga:null, geom:g }], point:null }); });
+    if (k === "school" && !state.schools.length){ toast("대상학교를 먼저 넣어 주세요"); return; }
+  }
+  try { _uCache.clear(); } catch(e){}
+  const area = k in { proj:1, school:1, park:1, cult:1 } ? "" : "";
+  vecSel = []; changed(); toast(`${VEC_AS[k]}(으)로 가져왔어요${k === "proj" ? ` · 사업지 약 ${fmt(state.project.reduce((a, p) => a + turf.area(turf.feature(p.geom)), 0))}㎡` : ""}`, 4500);
+}
+function v77Click(t, d){
+  if (d.vecstart){ vecStart(d.vecstart); return true; }
+  if (d.vecas){ vecImport(d.vecas); return true; }
+  if (d.act === "vecDone"){ vecSel = []; setMode(null); renderPanel(); redraw(); return true; }
+  if (d.act === "vecClear"){ vecSel = []; redraw(); renderPanel(); return true; }
+  return false;
+}
+function v77Change(t, d){
+  if (d.vecclosed !== undefined){ state.vecClosed = t.checked; save(); redraw(); renderPanel(); return true; }
+  if (d.vecmin !== undefined){ state.vecMin = Number(t.value); save(); redraw(); renderPanel(); return true; }
+  return false;
+}
+
 /* ===================== v7.0 ===================== */
 /* ---- 내 셋팅 카드 (서랍 맨 위) ---- */
 function mySetCard(){
@@ -6599,6 +6749,7 @@ loadOverlayImages();
 if (!state.project.length && nav.k !== "site") nav = { k:"site", tab:"in" };
 navGo(nav.k, nav.tab); hints();
 v7Init(); v71Init(); v73Init(); v74Init();
+setTimeout(() => state.overlays.filter(o => o.vec).forEach(o => vecOf(o)), 500);
 { const _ng = navGo; navGo = function(k, tab){ if (state.ovFocus && !/^safe/.test(k)) state.ovFocus = null; return _ng(k, tab); }; }
 document.addEventListener("input", e => { const t = e.target; if (t && t.dataset && t.dataset.georound !== undefined && t.type === "range"){ const T = editTarget(mode && mode.id); if (T){ T.obj.cv = { ...(T.obj.cv || {}), round:Number(t.value) || 0 }; T.set(T.get()); const b = t.closest(".row"); if (b) b.querySelectorAll("input").forEach(i => { if (i !== t) i.value = t.value; }); redraw(); } } }, true);
 </script>
