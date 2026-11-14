@@ -328,7 +328,7 @@ body.ovFocus #map{background:#ffffff}
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "7.7";
+const APP_VERSION = "8.0";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const KINDS = ["유치원","초등학교","중학교","고등학교","특수학교","기타"];
@@ -828,7 +828,7 @@ function fitAll(quiet){
 
 /* ===== 모양 (색·선·투명도·해치) ===== */
 const NS = "http://www.w3.org/2000/svg";
-const LINE_KEYS = ["dim","dimNew","walk","route","routeOut","bike","osmWalk","pedRoad","kidRoad","szOther","hkAxis","hkCircle","hkArrow","inRoute","outRoute","panel"];
+const LINE_KEYS = ["dim","dimNew","walk","route","routeOut","bike","osmWalk","pedRoad","kidRoad","szOther","hkAxis","hkCircle","hkArrow","inRoute","outRoute","panel","roof","roofT","roofC"];
 const DEF_STYLE = {
   proj: { stroke:"#000000", weight:0.5, dash:"solid", lineOp:1,    fill:"#FFF2CC", fillOp:1,    hatch:"none", gap:8 },
   site: { stroke:"#000000", weight:0.5, dash:"solid", lineOp:1,    fill:"#DEEBF7", fillOp:1,    hatch:"none", gap:8 },
@@ -861,9 +861,9 @@ const DEF_STYLE = {
   inRoute: { stroke:"#e03131", weight:3, dash:"solid", lineOp:1 },
   outRoute:{ stroke:"#1c7ed6", weight:3, dash:"solid", lineOp:1 },
   panel:   { stroke:"#343a40", weight:3, dash:"solid", lineOp:1 },
-  roof:    { stroke:"#2b8a3e", weight:1.2, dash:"solid", lineOp:1, fill:"#ebfbee", fillOp:1, hatch:"diag", gap:5 },
-  roofT:   { stroke:"#1971c2", weight:1.4, dash:"solid", lineOp:1, fill:"#e7f5ff", fillOp:1, hatch:"vert", gap:6 },
-  roofC:   { stroke:"#e8590c", weight:1.4, dash:"solid", lineOp:1, fill:"#fff4e6", fillOp:1, hatch:"horiz", gap:6 },
+  roof:    { stroke:"#40c057", weight:7, dash:"solid", lineOp:1, neonPt:0.2 },
+  roofT:   { stroke:"#339af0", weight:7, dash:"solid", lineOp:1, neonPt:0.2 },
+  roofC:   { stroke:"#ff922b", weight:7, dash:"solid", lineOp:1, neonPt:0.2 },
   craneR:  { stroke:"#e8590c", weight:2, dash:"solid", lineOp:1, fill:"#ffa94d", fillOp:0.35, hatch:"none", gap:8 },
   craneOut:{ stroke:"#e03131", weight:2, dash:"dash", lineOp:1, fill:"#ff8787", fillOp:0, hatch:"none", gap:8 },
   wait:    { stroke:"#2f9e44", weight:1.5, dash:"solid", lineOp:1, fill:"#b2f2bb", fillOp:0.8, hatch:"none", gap:8 },
@@ -887,6 +887,8 @@ const saveStyles = () => ls("eduMap.styles", styles);
 if (!ls("eduMap.style40")){ styles.proj = { ...DEF_STYLE.proj }; styles.site = { ...DEF_STYLE.site }; saveStyles(); ls("eduMap.style40", 1); }
 const LBL_COL = { proj:"#B07D00", site:"#2F6FDF" };
 const RFN_KEYS = ["rd_main","rd_sub","rd_col","rd_loc"];
+if (!ls("eduMap.sf80")){ ["roof","roofT","roofC"].forEach(k => { if (styles[k] && styles[k].neonPt === undefined) styles[k].neonPt = 0.2; }); saveStyles(); ls("eduMap.sf80", 1); }
+if (!ls("eduMap.sf79")){ ["roof","roofT","roofC"].forEach(k => styles[k] = { ...DEF_STYLE[k] }); saveStyles(); ls("eduMap.sf79", 1); ls("eduMap.sf71", 1); }
 if (!ls("eduMap.sf71")){ ["panel","roof"].forEach(k => styles[k] = { ...DEF_STYLE[k] }); saveStyles(); ls("eduMap.sf71", 1); }
 if (!ls("eduMap.cr46")){ ["craneR","craneOut"].forEach(k => styles[k] = { ...DEF_STYLE[k] }); saveStyles(); ls("eduMap.cr46", 1); }
 if (!ls("eduMap.st43")){ ["dim","route","routeOut"].forEach(k => styles[k] = { ...DEF_STYLE[k] }); saveStyles(); ls("eduMap.st43", 1); }
@@ -1651,7 +1653,7 @@ function buildScene(disp){
     S.lines.filter(l => V(l, l.type)).forEach(l => { if (!l.pts.length) return;
       if (VEH_T.includes(l.type) && l.pts.length > 1 && state.routeNice !== false && !(mode && mode.id === l.id)){
         const c = niceRoute(effLine(l, l.pts)), arw = !(state.routeOpt || {}).noArrow && !l.noArrow; items.push({ k:"line", coords:c, sk:l.type, endArrow:arw, halo:true }); if (arw) routeArrows(c).forEach(a => items.push({ k:"line", coords:a, sk:l.type, endArrow:true }));
-      } else if (l.type === "roof" && l.pts.length > 1 && !(mode && mode.id === l.id)){ const g = roofBand(l); if (g) items.push({ k:"poly", geom:g, sk:roofSk(l) }); else items.push({ k:"line", coords:l.pts, sk:l.type }); leg.add(roofSk(l)); return; }
+      } else if (l.type === "roof" && l.pts.length > 1 && !(mode && mode.id === l.id)){ const g = roofBand(l); items.push({ k:"line", coords: g || effLine(l, l.pts), sk:roofSk(l), neon:true }); leg.add(roofSk(l)); return; }
       else items.push({ k:"line", coords:effLine(l, l.pts), sk:l.type });
       leg.add(l.type); });
     S.pts.filter(p => V(p, p.type)).forEach(p => { icons.push(p); leg.add("sp_" + p.type); if (p.icons){ posts.push(p); POST_ICONS.forEach(k => p.icons[k] && leg.add("sp_" + k)); } });
@@ -1702,7 +1704,8 @@ function redraw(){
     const grp = nearP ? (it.sk === "near" ? nearLayer : vecLayer) : drawLayer;
     const opt = { interactive:false, pane: nearP ? "near" : "overlayPane", renderer: nearP ? rNear : rOver };
     if (it.k === "poly") L.geoJSON(it.geom, { ...opt, style:() => { let st = it.fillOnly ? { ...leafStyle(it.sk), stroke:false } : leafStyle(it.sk); if (it.lineOnly) st = { ...st, fillOpacity:0 }; if (it.col) st = { ...st, fillColor:it.col, color:hexDark(it.col, 0.45) }; if (it.sk === "proj"){ const k = workProjOp(); if (k < 1) st = { ...st, fillOpacity:(st.fillOpacity || 0) * k }; } return st; } }).addTo(grp);
-    else if (it.k === "line"){ if (it.halo) L.polyline(it.coords.map(ll), { ...opt, color:"#ffffff", weight:(styles[it.sk].weight || 3) + 3.5, opacity:0.95, fill:false }).addTo(grp);
+    else if (it.k === "line"){ if (it.neon && (styles[it.sk].neonPt || 0) > 0) L.polyline(it.coords.map(ll), { ...opt, color:"#ffffff", weight:(styles[it.sk].weight || 3) + 2, opacity:1, fill:false, lineCap:"butt" }).addTo(grp);
+      if (it.halo) L.polyline(it.coords.map(ll), { ...opt, color:"#ffffff", weight:(styles[it.sk].weight || 3) + 3.5, opacity:0.95, fill:false }).addTo(grp);
       L.polyline(it.coords.map(ll), { ...opt, ...leafStyle(it.sk), fill:false }).addTo(grp);
       if (it.arrows || it.endArrow) arrowTris(it, c => map.latLngToContainerPoint([c[1], c[0]])).forEach(t => L.polygon(t.pts.map(q => map.containerPointToLatLng(q)), { interactive:false, renderer:rOver, stroke:!!t.outline, color:t.outline || "#000", weight:1, fillColor:t.fill, fillOpacity:1 }).addTo(drawLayer)); }
     else if (it.k === "dot") L.circleMarker(ll(it.pt), { radius:it.r, interactive:false, renderer:rOver, color:"#fff", weight:2, fillColor:it.color, fillOpacity:1 }).addTo(drawLayer);
@@ -4521,6 +4524,11 @@ async function savePptGrouped(pptx, fname){
       const xml = await zip.file(path).async("string"), doc = new DOMParser().parseFromString(xml, "application/xml"), tree = doc.getElementsByTagNameNS(NP, "spTree")[0]; if (!tree) continue;
       const kids = [...tree.children].filter(e => ["sp","pic","cxnSp"].includes(e.localName)), groups = new Map(); let maxId = 1;
       [...doc.getElementsByTagNameNS(NP, "cNvPr")].forEach(c => { maxId = Math.max(maxId, +c.getAttribute("id") || 0); });
+      kids.forEach(e => { const c = e.getElementsByTagNameNS(NP, "cNvPr")[0], nm0 = c && c.getAttribute("name") || "", nq = nm0.match(/^NEON([\d.]+)~/);
+        if (nq){ c.setAttribute("name", nm0.slice(nq[0].length)); const sp = e.getElementsByTagNameNS(NP, "spPr")[0];
+          if (sp){ const ef = doc.createElementNS(NA, "a:effectLst"), gl = doc.createElementNS(NA, "a:glow"), cl = doc.createElementNS(NA, "a:srgbClr"); gl.setAttribute("rad", String(Math.round(Number(nq[1]) * 12700))); cl.setAttribute("val", "FFFFFF"); gl.appendChild(cl); ef.appendChild(gl);
+            const after = [...sp.children].find(x => ["scene3d","sp3d","extLst"].includes(x.localName)); after ? sp.insertBefore(ef, after) : sp.appendChild(ef); } }
+      });
       kids.forEach(e => { const c = e.getElementsByTagNameNS(NP, "cNvPr")[0], nm = c && c.getAttribute("name") || "", m = nm.match(/^G\|(.+)\|\d+$/); if (!m) return; c.setAttribute("name", m[1]); (groups.get(m[1]) || groups.set(m[1], []).get(m[1])).push(e); });
       groups.forEach((els, name) => {
         if (els.length < 2) return;
@@ -4584,7 +4592,7 @@ const toHex = c => { c = String(c || "#000000").trim(); const m = c.match(/^rgba
 // 슬라이드에 넣는 도형마다 그룹 이름을 붙임 (나중에 같은 이름끼리 묶음)
 function groupSlide(sl0){
   let g = "", n = 0;
-  const nm = o => ({ ...o, objectName: g ? `G|${g}|${++n}` : (o.objectName || `도형 ${++n}`) });
+  const nm = o => { const { neonPt, ...r } = o; return { ...r, objectName: (neonPt ? `NEON${neonPt}~` : "") + (g ? `G|${g}|${++n}` : (o.objectName || `도형 ${++n}`)) }; };
   return { get G(){ return g; }, set G(v){ g = v || ""; }, addShape:(t, o) => sl0.addShape(t, nm(o)), addText:(t, o) => sl0.addText(t, nm(o)), addImage:o => sl0.addImage(nm(o)), addTable:(r, o) => sl0.addTable(r, o), addNotes:t => sl0.addNotes(t) };
 }
 const ICON_GROUP = t => /^cw/.test(t) ? "횡단보도" : ["gateArr","pgMain","pgSub","pgPed","pgCar"].includes(t) ? "출입구" : ENT_TYPES.includes(t) ? "공사차량 진출입구" : /^cr/.test(t) ? "타워크레인" : t === "busStop" ? "버스정류장" : t === "kidZone" ? "어린이보호구역" : t === "cctvEx" ? "CCTV(기존)" : t === "yellowCarpet" ? "옐로카펫" : "안전시설 기호";
@@ -4625,7 +4633,7 @@ async function pptShapes(pptx, sl, box){
     } else if (it.k === "line"){
       const s = styles[it.sk]; if (!s || it.coords.length < 2) return;
       const g = clip({ type:"LineString", coordinates:it.coords });
-      (g.type === "MultiLineString" ? g.coordinates : g.type === "LineString" ? [g.coordinates] : []).filter(l => l.length > 1).forEach(l => { if (it.halo) path([l], { line:{ ...lineOf(s), color:"FFFFFF", width:pt((s.weight || 3) + 3.5), transparency:5, dashType:"solid" } }, false); path([l], { line:lineOf(s) }, false); });
+      (g.type === "MultiLineString" ? g.coordinates : g.type === "LineString" ? [g.coordinates] : []).filter(l => l.length > 1).forEach(l => { if (it.halo) path([l], { line:{ ...lineOf(s), color:"FFFFFF", width:pt((s.weight || 3) + 3.5), transparency:5, dashType:"solid" } }, false); path([l], { line:lineOf(s), ...(it.neon && s.neonPt > 0 ? { neonPt:s.neonPt } : {}) }, false); });
       if (it.arrows || it.endArrow) arrowTris(it, P).forEach(t => { const xs = t.pts.map(q => q.x), ys = t.pts.map(q => q.y), x0 = Math.min(...xs), y0 = Math.min(...ys);
         sl.addShape(pptx.ShapeType.custGeom, { x:X(x0), y:Y(y0), w:Math.max((Math.max(...xs) - x0) * f, 0.001), h:Math.max((Math.max(...ys) - y0) * f, 0.001), points:[...t.pts.map((q, i) => ({ x:(q.x - x0) * f, y:(q.y - y0) * f, ...(i ? {} : { moveTo:true }) })), { close:true }], fill:{ color:toHex(t.fill) }, ...(t.outline ? { line:{ color:toHex(t.outline), width:0.5 } } : {}) }); });
     } else if (it.k === "secline"){
@@ -4747,7 +4755,8 @@ function buildSVG(ovData, opts = {}){
   if (opts.only === "overlay"){ out.push(`</svg>`); return { svg: out.join(""), W, H }; }
   sc.items.forEach(it => {
     if (it.k === "poly") polysOf(it.geom).forEach(poly => out.push(`<path fill-rule="evenodd" d="${poly.map(r => "M" + r.map(P).join("L") + "Z").join(" ")}" ${it.fillOnly ? st(it.sk).replace(/stroke="[^"]*"/, 'stroke="none"') : it.lineOnly ? st(it.sk).replace(/fill="[^"]*"/, 'fill="none"') : it.col ? st(it.sk).replace(/fill="[^"]*"/, `fill="${it.col}"`).replace(/stroke="[^"]*"/, `stroke="${hexDark(it.col, 0.45)}"`) : st(it.sk)} stroke-linejoin="round"/>`));
-    else if (it.k === "line"){ if (it.halo) out.push(`<polyline points="${it.coords.map(P).join(" ")}" fill="none" stroke="#FFFFFF" stroke-opacity="0.95" stroke-width="${(styles[it.sk].weight || 3) + 3.5}" stroke-linejoin="round"/>`);
+    else if (it.k === "line"){ if (it.neon && (styles[it.sk].neonPt || 0) > 0) out.push(`<polyline points="${it.coords.map(P).join(" ")}" fill="none" stroke="#FFFFFF" stroke-width="${(styles[it.sk].weight || 3) + 2}" stroke-linejoin="round"/>`);
+      if (it.halo) out.push(`<polyline points="${it.coords.map(P).join(" ")}" fill="none" stroke="#FFFFFF" stroke-opacity="0.95" stroke-width="${(styles[it.sk].weight || 3) + 3.5}" stroke-linejoin="round"/>`);
       out.push(`<polyline points="${it.coords.map(P).join(" ")}" ${st(it.sk, true)} stroke-linejoin="round"/>`);
       if (it.arrows || it.endArrow) arrowTris(it, c => map.latLngToContainerPoint([c[1], c[0]])).forEach(t => out.push(`<polygon points="${t.pts.map(q => q.x.toFixed(1) + "," + q.y.toFixed(1)).join(" ")}" fill="${t.fill}" ${t.outline ? `stroke="${t.outline}" stroke-width="1"` : ""}/>`)); }
     else if (it.k === "dot"){ const [x,y] = P(it.pt).split(","); out.push(`<circle cx="${x}" cy="${y}" r="${it.r}" fill="${it.color}" stroke="#fff" stroke-width="2"/>`); }
@@ -5353,14 +5362,19 @@ applyUI();
 function roofBand(l){
   try {
     const cy = map.getSize().y / 2, mpp = map.distance(map.containerPointToLatLng([0, cy]), map.containerPointToLatLng([100, cy])) / 100 || 1;
-    const pw = (styles.panel && styles.panel.weight) || 3, bw = 8, c = (pw / 2 + 3 + bw / 2) * mpp, h = bw / 2 * mpp;
-    const ln = turf.lineString(effLine(l, l.pts)), off = d => turf.lineOffset(ln, d, { units:"meters" }).geometry.coordinates;
+    const pw = (styles.panel && styles.panel.weight) || 3, bw = (styles[roofSk(l)] || styles.roof).weight || 7, c = (pw / 2 + bw / 2) * mpp;
+    // 판넬 가까이 그은 점은 판넬 선 위로 붙여서, 띠가 판넬에 딱 붙게
+    const PN = state.safety.lines.filter(x => x.type === "panel" && x.pts.length > 1 && (x.ph === l.ph || x.ph === "all" || l.ph === "all")).map(x => turf.lineString(effLine(x, x.pts))), tol = Math.max(3, 14 * mpp);
+    const PV = PN.flatMap(g => g.geometry.coordinates);
+    const snapP = p => { let bv = null; PV.forEach(v => { const d = ptpt(p, v); if (d <= tol && (!bv || d < bv.d)) bv = { d, c:v }; }); if (bv) return bv.c.slice(); let best = null; PN.forEach(g => { const q = turf.nearestPointOnLine(g, turf.point(p), { units:"meters" }); if (q.properties.dist <= tol && (!best || q.properties.dist < best.d)) best = { d:q.properties.dist, c:q.geometry.coordinates }; }); return best ? best.c : p; };
+    let base = effLine(l, l.pts); if (PN.length) base = base.map(snapP).filter((p, i, A) => !i || ptpt(p, A[i - 1]) > 0.05);
+    if (base.length < 2) return null;
+    const ln = turf.lineString(base), off = d => turf.lineOffset(ln, d, { units:"meters" }).geometry.coordinates;
     let s = 1; const su = siteUnion();
     if (su){ const cen = turf.centerOfMass(turf.feature(su)).geometry.coordinates, far = q => q.reduce((a, p) => a + Math.hypot((p[0] - cen[0]) * Math.cos(cen[1] * Math.PI / 180), p[1] - cen[1]), 0);
       s = far(off(c)) >= far(off(-c)) ? 1 : -1; }
     if (l.flip) s = -s;
-    const a = off(s * (c - h)), b = off(s * (c + h));
-    return { type:"Polygon", coordinates:[[...a, ...b.reverse(), a[0]]] };
+    return off(s * c);
   } catch(e){ return null; }
 }
 
