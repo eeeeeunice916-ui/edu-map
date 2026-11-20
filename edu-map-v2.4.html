@@ -177,7 +177,7 @@ body.bgshot #map .leaflet-overlay-pane, body.bgshot #map .leaflet-marker-pane, b
 #modeBar button{background:#fff;color:var(--ink);border:none;border-radius:8px;height:32px;padding:0 12px;font-size:13.5px;cursor:pointer}
 #toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:rgba(31,35,40,.92);color:#fff;padding:9px 14px;border-radius:10px;font-size:14px;z-index:3000;display:none;max-width:90vw}
 #zoneHint{position:absolute;left:12px;bottom:40px;z-index:900;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--sub);display:none}
-#mapMsg{position:absolute;left:12px;right:12px;bottom:34px;z-index:1200;display:none;background:#fff9db;border:1px solid #ffe066;border-radius:10px;padding:8px 12px;font-size:12.5px;line-height:1.5;box-shadow:0 1px 6px rgba(0,0,0,.08)}
+#mapMsg{position:absolute;left:12px;right:12px;top:104px;z-index:1200;display:none;background:#fff9db;border:1px solid #ffe066;border-radius:10px;padding:8px 12px;font-size:12.5px;line-height:1.5;box-shadow:0 1px 6px rgba(0,0,0,.08)}
 #legend,#pLegend{position:absolute;right:12px;bottom:46px;z-index:900;background:rgba(255,255,255,.96);border:1px solid #c9ced6;border-radius:8px;padding:9px 12px;font-size:12px;line-height:1.85;display:none}
 #pLegend{border-radius:0;bottom:12px;right:12px;background:none!important;border:none!important;padding:0!important;line-height:normal}
 #legend i,#pLegend i{display:inline-block;width:18px;height:11px;margin-right:6px;vertical-align:-1px;border-radius:2px}
@@ -328,7 +328,7 @@ body.ovFocus #map{background:#ffffff}
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "8.1";
+const APP_VERSION = "8.2";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const KINDS = ["유치원","초등학교","중학교","고등학교","특수학교","기타"];
@@ -2120,7 +2120,7 @@ function shortName(n){ return n.replace(/등학교$/, "").replace(/학교$/, "")
 
 /* ===== 자석 (스냅) ===== */
 let snapOn = ls("eduMap.snap") !== false;
-const SNAP_MODES = ["ov2pt","autoRoute","schoolDraw","facDraw","route","walk","safeShape","safept","safePost","sgate","pgate","crane","facPt","gate","ovMove","secline"];
+const SNAP_MODES = ["projDraw","ov2pt","autoRoute","schoolDraw","facDraw","route","walk","safeShape","safept","safePost","sgate","pgate","crane","facPt","gate","ovMove","secline"];
 const _bb = new WeakMap();
 function ringBox(r){ let b = _bb.get(r); if (!b){ let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity; r.forEach(v => { if (v[0]<x0) x0=v[0]; if (v[0]>x1) x1=v[0]; if (v[1]<y0) y0=v[1]; if (v[1]>y1) y1=v[1]; }); b=[x0,y0,x1,y1]; _bb.set(r, b); } return b; }
 // 선으로 따기용: 화면 안 건물·필지 경계
@@ -2308,6 +2308,7 @@ function updateModeText(){
     m.type === "vecPick" ? "가져올 선을 누르세요 (여러 개 가능) · 다 골랐으면 패널에서 ‘사업지 경계로’ 등을 누르세요" :
     m.type === "geoEdit" ? "흰 점은 끌어 옮기기 · 주황 점을 끌면 새 점 · 파란 마름모를 끌면 휘기 · 다 했으면 ‘완료’" :
     m.type === "lineEdit" ? "점을 끌어 옮기세요 · 점 사이 작은 점을 끌면 새 점 · 점을 두 번 누르면 지우기 · 다 했으면 ‘완료’" :
+    m.type === "projDraw" ? `사업지 경계 모서리를 차례로 누르세요 · ${drawPts.length}점${drawPts.length >= 3 ? ` · 약 ${fmt(turf.area(turf.polygon([[...drawPts, drawPts[0]]])))}㎡` : ""} · 첫 점을 누르거나 ‘완료’로 닫기 (자석 켜짐)${m.sub === "cut" ? " · 다 그리면 필지를 이 경계 안쪽만 남겨요" : ""}` :
     m.type === "facDraw" ? `${(state.facs.find(f => f.id === m.id) || {}).name || "시설"} 영역 모서리를 차례로 누르세요 · ${drawPts.length}점 · 첫 점을 누르거나 ‘완료’로 닫기 (자석 켜짐)` :
     m.type === "schoolDraw" ? `${sName(s)} 교지 모서리를 차례로 누르세요 · ${drawPts.length}점${drawPts.length >= 3 ? ` · 약 ${fmt(turf.area(turf.polygon([[...drawPts, drawPts[0]]])))}㎡ · 첫 점을 누르거나 ‘완료’로 닫기` : ""} (자석: 건물·필지 경계에 붙음, Shift는 잠깐 끔)` :
     m.type === "schoolB" ? `${sName(s)}이(가) 있는 건물을 눌러 넣고 빼세요 (사업지 안·건물 안 유치원)` :
@@ -2331,7 +2332,7 @@ function updateModeText(){
     m.type === "safept" ? `‘${SAFE_ICONS[m.sub].name}’ 위치를 누르세요 (여러 번 가능)` :
     m.type === "safeShape" ? (() => { const l = findSL(m.id); return SAFE_AREAS[l.type] ? `‘${SAFE_AREAS[l.type]}’ 모서리를 차례로 누르세요` : `‘${SAFE_LINES[l.type]}’ 을(를) 따라 점을 찍으세요 · 약 ${fmt(routeLen(l))}m`; })() :
     `출발점부터 교문까지 길을 따라 점을 찍으세요 · 지금 약 ${fmt(routeLen(r))}m`;
-  $("#modeUndo").style.display = ["route","walk","safeShape","safept","schoolDraw","facDraw","autoRoute"].includes(m.type) ? "inline-block" : "none";
+  $("#modeUndo").style.display = ["route","walk","safeShape","safept","schoolDraw","facDraw","projDraw","autoRoute"].includes(m.type) ? "inline-block" : "none";
   renderSnapBtns();
 }
 let sel = new Set(), selStart = null;
@@ -2369,7 +2370,7 @@ function deleteSelected(){
   sel.clear(); changed(); updateModeText(); toast(`${n}개를 지웠어요 (Ctrl+Z로 되돌릴 수 있어요)`);
 }
 let drawPts = [];
-const isPolyDraw = m => !!m && (m.type === "schoolDraw" || m.type === "facDraw");
+const isPolyDraw = m => !!m && (m.type === "schoolDraw" || m.type === "facDraw" || m.type === "projDraw");
 /* ===== 공사차량 이동경로 자동 그리기 (출발 → 경유 → 도착) ===== */
 function roadGraph(){
   const L = state.roadLines || [], key = c => Math.round(c[0] * 20000) + "," + Math.round(c[1] * 20000), N = new Map();
@@ -2428,7 +2429,23 @@ async function finishAutoRoute(){
   const len = routeLen(l);
   toast(`${SAFE_LINES[type]}를 도로를 따라 그렸어요 (약 ${fmt(len)}m · ${src}). 틀린 곳은 ‘이어 그리기’나 경유지를 넣어 다시 그려 주세요`, 6500);
 }
+function finishProjDraw(){
+  if (drawPts.length < 3){ toast("꼭짓점을 3개 이상 찍어 주세요"); return false; }
+  let g = { type:"Polygon", coordinates:[[...drawPts, drawPts[0]]] };
+  try { const k = turf.kinks(turf.feature(g)); if (k.features.length){ const u = turf.unkinkPolygon(turf.feature(g)); g = u.features.sort((a, b) => turf.area(b) - turf.area(a))[0].geometry; } } catch(e){}
+  const cut = mode.sub === "cut"; drawPts = []; setMode(null);
+  if (!cut){ state.project.push({ pnu:"draw_" + uid(""), addr:"직접 그린 사업지", jimok:"", zone:"", jiga:null, geom:g }); try { _uCache.clear(); } catch(e){} changed(); toast(`사업지 경계를 그렸어요 (약 ${fmt(turf.area(turf.feature(g)))}㎡)`, 3500); return true; }
+  // 자르기: 필지는 그린 경계 안쪽만 남기고, 필지가 없는 부분(도로 등)은 그린 조각으로 더함
+  const G = turf.feature(g); let kept = 0, gone = 0;
+  state.project = state.project.filter(p => { const src = p.geom0 || p.geom; let x = null; try { x = turf.intersect(turf.featureCollection([turf.feature(src), G])); } catch(e){}
+    if (!x || turf.area(x) < 0.5){ gone++; return false; } if (!p.geom0) p.geom0 = p.geom; p.geom = x.geometry; kept++; return true; });
+  try { const PF = state.project.map(p => turf.feature(p.geom)), U = PF.length > 1 ? turf.union(turf.featureCollection(PF)) : PF[0] || null, rest = U ? turf.difference(turf.featureCollection([G, U])) : G;
+    if (rest && turf.area(rest) >= 1) state.project.push({ pnu:"draw_" + uid(""), addr:"직접 그린 사업지 (필지 밖)", jimok:"", zone:"", jiga:null, geom:rest.geometry, fromCut:true }); } catch(e){ console.warn(e); }
+  try { _uCache.clear(); } catch(e){}
+  changed(); toast(`그린 경계 안쪽만 사업지로 남겼어요 (필지 ${kept}개 자름${gone ? ` · 경계 밖 ${gone}개 뺌` : ""}) · 약 ${fmt(turf.area(G))}㎡`, 5000); return true;
+}
 function finishSchoolDraw(){
+  if (mode && mode.type === "projDraw") return finishProjDraw();
   const isFac = mode && mode.type === "facDraw", s = mode && (isFac ? state.facs.find(f => f.id === mode.id) : findS(mode.id));
   if (!s || drawPts.length < 3){ toast("꼭짓점을 3개 이상 찍어 주세요"); return false; }
   let g = { type:"Polygon", coordinates:[[...drawPts, drawPts[0]]] };
@@ -2556,8 +2573,9 @@ function layoutFrame(){
 
 /* ===== 패널 ===== */
 function parcelRow(p, kind, oid){
-  const a0 = areaOf([p.geom]), inp = kind === "proj" ? `<label class="row" style="gap:4px;margin-top:4px;font-size:12.5px;flex-wrap:nowrap"><span class="muted">편입면적</span><input class="inp sm" type="number" min="0" step="0.01" style="width:96px;height:26px" data-inarea="${esc(p.pnu)}" value="${p.inArea > 0 ? p.inArea : ""}" placeholder="${fmt(a0)} (전체)" aria-label="편입면적(㎡)"><span class="muted">㎡</span>${p.inArea > 0 ? `<span class="badge out" style="white-space:nowrap">일부 편입</span>` : ""}</label>` : "";
-  return `<div class="parcel"><div class="t">${esc(p.addr)}<br><span class="muted">${p.jimok ? "지목 " + esc(p.jimok) + " · " : ""}${esc(p.zone || "")}${p.jiga ? ` · ${fmt(p.jiga)}원/㎡` : ""} · 약 ${fmt(a0)}㎡</span>${inp}</div>
+  const a0 = areaOf([p.geom]), inp = kind === "proj" ? `<label class="row" style="gap:4px;margin-top:4px;font-size:12.5px;flex-wrap:nowrap"><span class="muted">편입면적</span><input class="inp sm" type="number" min="0" step="0.01" style="width:96px;height:26px" data-inarea="${esc(p.pnu)}" value="${p.inArea > 0 ? p.inArea : ""}" placeholder="${fmt(a0)} (전체)" aria-label="편입면적(㎡)" ${p.geom0 ? "disabled title=\"그린 경계로 자른 필지는 자른 면적을 써요\"" : ""}><span class="muted">㎡</span>${p.inArea > 0 ? `<span class="badge out" style="white-space:nowrap">일부 편입</span>` : ""}</label>` : "";
+  const ed = kind === "proj" && /^draw_/.test(p.pnu) ? `<button class="btn sm" style="height:26px;margin-top:4px" data-ptedit="${esc(p.pnu)}">점·곡선 고치기</button>` : "";
+  return `<div class="parcel"><div class="t">${esc(p.addr)}${p.geom0 ? ` <span class="badge out">경계로 자름</span>` : ""}<br><span class="muted">${p.jimok ? "지목 " + esc(p.jimok) + " · " : ""}${esc(p.zone || "")}${p.jiga ? ` · ${fmt(p.jiga)}원/㎡` : ""} · 약 ${fmt(a0)}㎡</span>${inp}${ed}</div>
   <button class="x" data-del="${kind}" data-pnu="${esc(p.pnu)}" ${oid ? `data-oid="${oid}"` : ""} aria-label="빼기">✕</button></div>`;
 }
 const head = () => "";      // v5: 제목은 목차 머리(navHead)에서
@@ -2807,6 +2825,8 @@ function panel1(){
   <div class="card">
     <button class="btn ${on("projBox") ? "on" : ""} full" style="margin-bottom:6px" data-act="selProjBox">${on("projBox") ? "드래그 중… 네모로 필지 묶어 넣기 (Shift+드래그는 빼기)" : "⬚ 드래그로 사업지 필지 한 번에 고르기"}</button>
     <button class="btn ${on("project") ? "on" : "dashed"} full" data-act="selProj">${on("project") ? "필지 고르는 중… (지도에서 눌러 넣고 빼기)" : "+ 지도에서 사업지 필지 고르기"}</button>
+    <div class="grid2" style="margin-top:6px"><button class="btn sm ${mode && mode.type === "projDraw" && mode.sub !== "cut" ? "on" : ""}" data-projdraw="add" title="모서리를 찍어 사업지 경계를 직접 그려요 (자석으로 필지·건물 경계에 붙어요)">✎ 경계 직접 그리기</button><button class="btn sm ${mode && mode.type === "projDraw" && mode.sub === "cut" ? "on" : ""}" data-projdraw="cut" title="일부만 사는 필지: 실제 사업 경계를 그리면 필지를 그 안쪽만 남겨요">✂ 그린 경계로 필지 자르기</button></div>
+    ${state.project.some(p => p.geom0 || p.fromCut) ? `<button class="btn sm full" style="margin-top:4px" data-act="projUncut">자르기 되돌리기 (필지 원래 모양으로)</button>` : ""}
     ${state.project.map(p => parcelRow(p, "proj")).join("")}
     ${!state.project.length ? `<div class="muted" style="margin-top:8px">위 검색창에 주소를 넣어 이동한 뒤, 사업지 필지를 눌러 주세요.</div>` : ""}
     <details style="margin-top:10px" ${!state.project.length || bulkLeft || bulkBusy ? "open" : ""}><summary style="cursor:pointer;font-weight:600;font-size:13px">주소 여러 개 한 번에 넣기 (붙여넣기)</summary>
@@ -4935,6 +4955,8 @@ document.addEventListener("click", async e => {
   if (v73Click(t, d)) return;
   if (d.pptfson !== undefined){ state.print.pptFs = { ...pptFsOf(), on:d.pptfson === "1" }; save(); renderPanel(); return; }
   if (d.act === "pptFsReset"){ state.print.pptFs = { ...PPT_FS_DEF }; save(); renderPanel(); toast("PPT 글씨: 도로명 9pt · 나머지 10pt"); return; }
+  if (d.projdraw){ const cur = mode && mode.type === "projDraw" && (mode.sub || "add") === d.projdraw; if (cur){ if (drawPts.length >= 3) finishProjDraw(); else setMode(null); } else { if (d.projdraw === "cut" && !state.project.length){ toast("자를 필지가 없어요. 먼저 필지를 고르거나 ‘경계 직접 그리기’를 쓰세요"); return; } setMode({ type:"projDraw", sub:d.projdraw }); } renderPanel(); return; }
+  if (d.act === "projUncut"){ state.project = state.project.filter(p => !p.fromCut); state.project.forEach(p => { if (p.geom0){ p.geom = p.geom0; delete p.geom0; } }); try { _uCache.clear(); } catch(e){} changed(); toast("필지를 원래 모양으로 되돌렸어요 (자르기로 뺀 필지는 다시 골라 주세요)", 4500); return; }
   if (d.act === "areaManReset"){ delete state.areaManual; changed(); return; }
   if (v77Click(t, d)) return;
   if (v75Click(t, d)) return;
