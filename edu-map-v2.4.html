@@ -328,7 +328,7 @@ body.ovFocus #map{background:#ffffff}
 
 <script>
 /* ===== 설정 ===== */
-const APP_VERSION = "8.0";
+const APP_VERSION = "8.1";
 const VW_KEY = "1C3C3956-A882-416D-8DE7-3A232A4B096B";
 const DOMAIN = location.origin;            // 브이월드에 등록한 서비스URL과 같아야 함
 const KINDS = ["유치원","초등학교","중학교","고등학교","특수학교","기타"];
@@ -2556,7 +2556,8 @@ function layoutFrame(){
 
 /* ===== 패널 ===== */
 function parcelRow(p, kind, oid){
-  return `<div class="parcel"><div class="t">${esc(p.addr)}<br><span class="muted">${p.jimok ? "지목 " + esc(p.jimok) + " · " : ""}${esc(p.zone || "")}${p.jiga ? ` · ${fmt(p.jiga)}원/㎡` : ""} · 약 ${fmt(areaOf([p.geom]))}㎡</span></div>
+  const a0 = areaOf([p.geom]), inp = kind === "proj" ? `<label class="row" style="gap:4px;margin-top:4px;font-size:12.5px;flex-wrap:nowrap"><span class="muted">편입면적</span><input class="inp sm" type="number" min="0" step="0.01" style="width:96px;height:26px" data-inarea="${esc(p.pnu)}" value="${p.inArea > 0 ? p.inArea : ""}" placeholder="${fmt(a0)} (전체)" aria-label="편입면적(㎡)"><span class="muted">㎡</span>${p.inArea > 0 ? `<span class="badge out" style="white-space:nowrap">일부 편입</span>` : ""}</label>` : "";
+  return `<div class="parcel"><div class="t">${esc(p.addr)}<br><span class="muted">${p.jimok ? "지목 " + esc(p.jimok) + " · " : ""}${esc(p.zone || "")}${p.jiga ? ` · ${fmt(p.jiga)}원/㎡` : ""} · 약 ${fmt(a0)}㎡</span>${inp}</div>
   <button class="x" data-del="${kind}" data-pnu="${esc(p.pnu)}" ${oid ? `data-oid="${oid}"` : ""} aria-label="빼기">✕</button></div>`;
 }
 const head = () => "";      // v5: 제목은 목차 머리(navHead)에서
@@ -2593,7 +2594,7 @@ function dashboard(){
   return `<div class="card dsum">
       <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><b style="font-size:15px">${esc(state.name)}</b><button class="btn sm" data-nav="site">고치기</button></div>
       <div class="sumbox" style="margin-top:8px"><div class="k">소재지</div><div>${o ? esc(o.addr) : `<span class="muted">사업지를 넣어 주세요</span>`}</div>
-        <div class="k">사업면적</div><div>${o ? `약 ${fmt(o.area)}㎡ (${o.n}필지)` : "-"}</div>
+        <div class="k">사업면적</div><div>${o ? `${areaTxt(o)} (${o.n}필지)` : "-"}</div>
         <div class="k">용도지역</div><div>${o ? esc(o.zone) : "-"}</div>
         <div class="k">대상학교</div><div>${rows.length ? rows.map(r => `${esc(r.s.name)} <span class="muted">${r.d != null ? dTx(r.d) : ""}</span>`).join("<br>") : `<span class="muted">-</span>`}</div></div></div>
     <div class="card"><div class="row" style="justify-content:space-between"><b style="font-size:14px">진행</b><span class="muted">${done} / ${todo.length} 완료 · 그림 ${nFig}장 준비</span></div>
@@ -2704,12 +2705,15 @@ function exportCenter(){
 }
 
 /* 1단계 */
+const areaTxt = o => o.areaSrc === "도면" ? `약 ${fmt(o.area)}㎡` : `${Number(o.area).toLocaleString("ko-KR", { maximumFractionDigits:2 })}㎡`;
 function overview(){
   const P = state.project;
   if (!P.length) return null;
+  const drawn = areaOf(P.map(p => p.geom)), part = P.some(p => p.inArea > 0);
+  const sum = part ? P.reduce((a, p) => a + (p.inArea > 0 ? Number(p.inArea) : areaOf([p.geom])), 0) : drawn, man = Number(state.areaManual) > 0 ? Number(state.areaManual) : null;
   return {
     addr: P[0].addr + (P.length > 1 ? " 일원" : ""),
-    n: P.length, area: areaOf(P.map(p => p.geom)),
+    n: P.length, area: man ?? sum, drawn, areaSrc: man ? "직접 입력" : part ? "일부 편입 반영" : "도면", nPart: P.filter(p => p.inArea > 0).length,
     jimok: uniq(P.map(p => p.jimok)).join(", ") || "-",
     zone: uniq(P.flatMap(p => (p.zone || "").split(", "))).join(", ") || "-"
   };
@@ -2815,7 +2819,8 @@ function panel1(){
   </div>
   ${o ? `<div class="sumbox">
     <div class="k">소재지</div><div>${esc(o.addr)}${o.n > 1 ? ` (${o.n}필지)` : ""}</div>
-    <div class="k">사업면적</div><div>약 ${fmt(o.area)}㎡ <span class="muted">(도면)</span></div>
+    <div class="k">사업면적</div><div><div class="row" style="gap:4px;flex-wrap:nowrap"><input class="inp sm" type="number" min="0" step="0.01" style="width:120px;height:28px" data-areaman value="${state.areaManual > 0 ? state.areaManual : ""}" placeholder="${fmt(o.area)}" aria-label="사업면적 직접 입력(㎡)"><span>㎡</span>${state.areaManual > 0 ? `<button class="btn sm" data-act="areaManReset">자동으로</button>` : ""}</div>
+      <span class="muted" style="font-size:12px">${o.areaSrc === "직접 입력" ? `직접 입력 (도면 약 ${fmt(o.drawn)}㎡)` : o.areaSrc === "일부 편입 반영" ? `일부 편입 ${o.nPart}필지 반영 (도면 약 ${fmt(o.drawn)}㎡)` : "도면 기준 · 칸에 숫자를 넣으면 그 값으로 써요"}</span></div>
     <div class="k">지목</div><div>${esc(o.jimok)}</div>
     <div class="k">용도지역</div><div>${esc(o.zone)}</div></div>
   <button class="btn" data-act="copyOverview">사업 개요 표 복사</button>` : ""}
@@ -4930,6 +4935,7 @@ document.addEventListener("click", async e => {
   if (v73Click(t, d)) return;
   if (d.pptfson !== undefined){ state.print.pptFs = { ...pptFsOf(), on:d.pptfson === "1" }; save(); renderPanel(); return; }
   if (d.act === "pptFsReset"){ state.print.pptFs = { ...PPT_FS_DEF }; save(); renderPanel(); toast("PPT 글씨: 도로명 9pt · 나머지 10pt"); return; }
+  if (d.act === "areaManReset"){ delete state.areaManual; changed(); return; }
   if (v77Click(t, d)) return;
   if (v75Click(t, d)) return;
   if (v74Click(t, d)) return;
@@ -4939,7 +4945,7 @@ document.addEventListener("click", async e => {
     switch (d.act){
       case "selProj": setMode(on("project") ? null : { type:"project" }); break;
       case "selProjBox": setMode(on("projBox") ? null : { type:"projBox" }); break;
-      case "copyOverview": { const o = overview(); copy([["사업명", state.name], ["사업지 주소", o.addr], ["사업면적", `약 ${fmt(o.area)}㎡`], ["지목", o.jimok], ["용도지역", o.zone]].map(r => r.join("\t")).join("\n"), "사업 개요 표를 복사했어요"); break; }
+      case "copyOverview": { const o = overview(); copy([["사업명", state.name], ["사업지 주소", o.addr], ["사업면적", areaTxt(o)], ["지목", o.jimok], ["용도지역", o.zone]].map(r => r.join("\t")).join("\n"), "사업 개요 표를 복사했어요"); break; }
       case "findSchools": findSchools(); break;
       case "drawKz": drawKidZones(); break;
       case "szClear": if (confirm("넣은 학구도를 모두 지울까요?")){ state.szones = []; state.schools.forEach(x => delete x.szId); changed(); } break;
@@ -5132,6 +5138,8 @@ document.addEventListener("change", e => {
   if (v73Change(t, d)) return;
   if (v74Change(t, d)) return;
   if (v75Change(t, d)) return;
+  if (d.inarea !== undefined){ const p = state.project.find(x => x.pnu === d.inarea); if (p){ const v = Number(t.value); if (v > 0) p.inArea = Math.round(v * 100) / 100; else delete p.inArea; changed(); } return; }
+  if (d.areaman !== undefined){ const v = Number(t.value); if (v > 0) state.areaManual = Math.round(v * 100) / 100; else delete state.areaManual; changed(); return; }
   if (v77Change(t, d)) return;
   if (d.pptfs){ const v = Number(t.value); if (v >= 5 && v <= 40){ state.print.pptFs = { ...pptFsOf(), [d.pptfs]:v }; save(); } else toast("5~40pt 사이로 넣어 주세요"); return; }
   if (d.ovopn){ const o = state.overlays.find(x => x.id === d.ovopn); if (o){ o.opacity = Math.max(0.05, Math.min(1, Number(t.value) || 0.85)); changed(); } return; }
