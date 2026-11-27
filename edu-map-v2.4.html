@@ -538,23 +538,25 @@ async function parcelAt(lng, lat){
   try { const pt = turf.pointOnFeature(turf.feature(f.geometry)).geometry.coordinates; parcel.zone = await zoneAt(pt[0], pt[1]); } catch(e){}
   return parcel;
 }
+const _vsCache = new Map();
 async function vwSearch(q){
-  const road = /(로|길)\s*\d/.test(q);
-  const tries = [{ type:"address", category: road ? "road" : "parcel" }, { type:"address", category: road ? "parcel" : "road" }, { type:"place" }];
-  for (const t of tries){
-    try {
-      const d = await jsonp("https://api.vworld.kr/req/search", {
-        service:"search", request:"search", version:"2.0", crs:"EPSG:4326", size:8, page:1,
-        query:q, format:"json", errorformat:"json", key:VW_KEY, ...t });
-      const r = d && d.response;
-      if (r && r.status === "OK" && r.result && r.result.items && r.result.items.length){
-        return r.result.items.map(it => ({
-          title: t.type === "place" ? it.title : (it.address && (it.address.parcel || it.address.road)) || it.title,
-          sub: t.type === "place" ? ((it.address && (it.address.road || it.address.parcel)) || "") : ((it.address && it.address.road) || ""),
-          x: Number(it.point.x), y: Number(it.point.y) }));
-      }
-    } catch(e){}
-  }
+  q = String(q || "").trim(); if (!q) return [];
+  if (_vsCache.has(q)) return _vsCache.get(q);
+  // 세 가지를 동시에 묻고, 입력 모양에 맞는 결과부터 씀 (숫자 있으면 주소, 이름만 있으면 장소)
+  const road = /(로|길)\s*\d/.test(q), hasNum = /\d/.test(q);
+  const order = hasNum ? (road ? ["road", "parcel", "place"] : ["parcel", "road", "place"]) : ["place", "parcel", "road"];
+  const call = k => jsonp("https://api.vworld.kr/req/search", {
+      service:"search", request:"search", version:"2.0", crs:"EPSG:4326", size:8, page:1,
+      query:q, format:"json", errorformat:"json", key:VW_KEY, ...(k === "place" ? { type:"place" } : { type:"address", category:k }) })
+    .then(d => { const r = d && d.response;
+      if (!(r && r.status === "OK" && r.result && r.result.items && r.result.items.length)) return [];
+      return r.result.items.map(it => ({
+        title: k === "place" ? it.title : (it.address && (it.address.parcel || it.address.road)) || it.title,
+        sub: k === "place" ? ((it.address && (it.address.road || it.address.parcel)) || "") : ((it.address && it.address.road) || ""),
+        x: Number(it.point.x), y: Number(it.point.y) })); })
+    .catch(() => []);
+  const ps = order.map(call);
+  for (const p of ps){ const r = await p; if (r.length){ _vsCache.set(q, r); return r; } }
   return [];
 }
 
