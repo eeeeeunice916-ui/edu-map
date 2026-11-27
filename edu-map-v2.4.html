@@ -7130,10 +7130,10 @@ async function parkLand(pt){
   const bb = turf.bbox(bufferOf([{ type:"Point", coordinates:pt }], 400)), P = turf.point(pt);
   const near = (g, lim) => { try { if (turf.booleanPointInPolygon(P, turf.feature(g))) return 0; return turf.pointToPolygonDistance ? turf.pointToPolygonDistance(P, turf.feature(g), { units:"meters" }) : Infinity; } catch(e){ return Infinity; } };
   // 1) 도시계획시설 공원·체육시설 면
-  try { const fs = [...await vwFeaturesInBox("LT_C_UPISUQ153", bb, 1).catch(() => []), ...await vwFeaturesInBox("LT_C_UPISUQ155", bb, 1).catch(() => [])].filter(f => f.geometry && /Polygon/.test(f.geometry.type));
+  try { const fs = (await Promise.all([vwFeaturesInBox("LT_C_UPISUQ153", bb, 1).catch(() => []), vwFeaturesInBox("LT_C_UPISUQ155", bb, 1).catch(() => [])])).flat().filter(f => f.geometry && /Polygon/.test(f.geometry.type));
     let best = null, bd = 30; fs.forEach(f => { const d = near(f.geometry); if (d < bd){ bd = d; best = f; } }); if (best) return { geom:_rnd(best.geometry), src:"도시계획시설" }; } catch(e){}
   // 2) 지목이 공원·체육용지인 필지 묶음
-  try { const fs = (await vwFeaturesInBox("LP_PA_CBND_BUBUN", bb, 4)).filter(f => f.geometry && /(공|체)$/.test(String((f.properties || {}).jibun || "").trim()));
+  try { const fs = (await vwFeaturesInBox("LP_PA_CBND_BUBUN", bb, 2)).filter(f => f.geometry && /(공|체)$/.test(String((f.properties || {}).jibun || "").trim()));
     if (fs.length){ const G = hakGroups(fs); let best = null, bd = 30; G.forEach(g => { const d = Math.min(...g.map(f => near(f.geometry))); if (d < bd){ bd = d; best = g; } });
       if (best) return { geom:multiOf(best.map(f => f.geometry)), src:"공원·체육용지 필지" }; } } catch(e){}
   return null;
@@ -7156,7 +7156,7 @@ function facDual(){
 { const _sv2 = save; save = function(){ try { facDual(); } catch(e){} return _sv2.apply(this, arguments); }; }
 { const _af0 = autoFind; autoFind = async function(type, quiet){ await _af0.apply(this, arguments);
     const pts = (autoRes || []).filter(r => r.geom && r.geom.type === "Point" && /공원|운동장|경기장/.test(r.name || "")); if (!pts.length) return;
-    for (const r of pts){ const x = await parkLand(r.geom.coordinates); if (x){ r.geom = x.geom; r.cat = (r.cat || "") + " · 면"; } }
+    await Promise.all(pts.sort((a, b) => a.d - b.d).slice(0, 6).map(async r => { const x = await parkLand(r.geom.coordinates); if (x){ r.geom = x.geom; r.cat = (r.cat || "") + " · 면"; } }));
     if (!quiet) renderPanel(); }; }
 { const _an0 = autoNearest; autoNearest = async function(type){ await _an0.apply(this, arguments); const n = await facPolyUpgrade(); if (n) changed(); }; }
 
@@ -7453,21 +7453,38 @@ function facCandCard(type){
 }
 /* 교문 후보: 교지 경계 중 도로에 가장 붙은 자리 */
 let gateCandBusy = false, gateCandTried = "";
+const _gcCache = new Map();
 function gateCandOf(s){
   if (s.gate || !s.parcels.length || !(state.roadLines || []).length) return null;
+  const key = s.id + "|" + s.parcels.map(p => p.pnu).join(",") + "|" + state.roadLines.length + "|" + reg.cur;
+  if (_gcCache.has(key)) return _gcCache.get(key);
+  const v = gateCandOf0(s); _gcCache.set(key, v); if (_gcCache.size > 200) _gcCache.clear(); return v;
+}
+function gateCandOf0(s){
   const u = schoolUnion(s); if (!u) return null;
-  let bb; try { bb = turf.bbox(bufferOf([u], 80)); } catch(e){ return null; }
-  const R = state.roadLines.filter(l => { if (l.length < 2) return false; let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; l.forEach(c => { x0 = Math.min(x0, c[0]); x1 = Math.max(x1, c[0]); y0 = Math.min(y0, c[1]); y1 = Math.max(y1, c[1]); }); return !(x0 > bb[2] || x1 < bb[0] || y0 > bb[3] || y1 < bb[1]); }).map(l => turf.lineString(l));
-  if (!R.length) return null;
+  let bb; try { bb = turf.bbox(bufferOf([u], 60)); } catch(e){ return null; }
+  // 평면 근사(미터)로 빠르게: 학교 주변 60m 안 도로선 조각만
+  const lat0 = (bb[1] + bb[3]) / 2, kx = 111320 * Math.cos(lat0 * Math.PI / 180), ky = 110540;
+  const P = c => [(c[0] - bb[0]) * kx, (c[1] - bb[1]) * ky], W = (bb[2] - bb[0]) * kx, H = (bb[3] - bb[1]) * ky;
+  const segs = [];
+  state.roadLines.forEach(l => { for (let i = 1; i < l.length; i++){ const a = P(l[i - 1]), b = P(l[i]);
+    if (Math.max(a[0], b[0]) < 0 || Math.min(a[0], b[0]) > W || Math.max(a[1], b[1]) < 0 || Math.min(a[1], b[1]) > H) continue; segs.push([a, b]); } });
+  if (!segs.length) return null;
+  const dseg = (q, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy; let t = L2 ? ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / L2 : 0; t = Math.max(0, Math.min(1, t)); const x = a[0] + t * dx - q[0], y = a[1] + t * dy - q[1]; return Math.sqrt(x * x + y * y); };
   let best = null;
-  try { polysOf(u).forEach(pc => { const ln = turf.lineString(pc[0]), len = turf.length(ln, { units:"meters" });
-    for (let d = 0; d <= len; d += 4){ const q = turf.along(ln, d, { units:"meters" }); let m = Infinity; R.forEach(r => { const x = turf.pointToLineDistance(q, r, { units:"meters" }); if (x < m) m = x; }); if (!best || m < best.d) best = { d:m, pt:q.geometry.coordinates }; } }); } catch(e){}
-  return best && best.d < 40 ? best.pt : null;
+  polysOf(u).forEach(pc => { const ring = pc[0];
+    for (let i = 1; i < ring.length; i++){ const a = P(ring[i - 1]), b = P(ring[i]), len = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(len / 6));
+      for (let j = 0; j <= n; j++){ const q = [a[0] + (b[0] - a[0]) * j / n, a[1] + (b[1] - a[1]) * j / n]; let m = Infinity; for (const sg of segs){ const d = dseg(q, sg[0], sg[1]); if (d < m) m = d; }
+        if (!best || m < best.d) best = { d:m, q }; } } });
+  return best && best.d < 40 ? [Math.round((best.q[0] / kx + bb[0]) * 1e7) / 1e7, Math.round((best.q[1] / ky + bb[1]) * 1e7) / 1e7] : null;
 }
 async function ensureRoadLines(){ if ((state.roadLines || []).length || gateCandBusy || gateCandTried === reg.cur) return; gateCandBusy = true; gateCandTried = reg.cur; try { await loadRoadNames(true); } catch(e){} gateCandBusy = false; redraw(); renderPanel(); }
 /* 지도에 후보 그리기 */
+let _dcKey = "", _ringKey = "", _ringGeom = null;
 function drawCands(){
-  if (!map) return; if (!candLayer) candLayer = L.layerGroup().addTo(map); candLayer.clearLayers();
+  if (!map) return; if (!candLayer) candLayer = L.layerGroup().addTo(map);
+  const key = [nav.k, nav.tab, step, drawer ? 1 : 0, mode ? mode.type : "", dataVer, reg.cur, facCand.park ? facCand.park.length : -1, facCand.cult ? facCand.cult.length : -1, (schoolCands || []).length, (state.roadLines || []).length].join("|");
+  if (key === _dcKey) return; _dcKey = key; candLayer.clearLayers();
   if (step === 4 || nav.tab === "fig" || drawer || (mode && mode.type !== "projBlock")) return;
   const tip = (lay, txt, cls) => lay.bindTooltip(txt, { permanent:true, direction:"top", className:"ezTip " + (cls || ""), offset:[0, -4] });
   if ((nav.k === "park" || nav.k === "cult") && facCand[nav.k]){
@@ -7480,7 +7497,7 @@ function drawCands(){
   }
   if (nav.k === "school" && nav.tab !== "fig"){
     const pj = state.project.map(p => p.geom);
-    if (pj.length){ try { L.geoJSON(bufferOf(pj, schR()), { style:{ color:"#378ADD", weight:1.2, dashArray:"6 5", fill:false }, interactive:false }).addTo(candLayer); } catch(e){} }
+    if (pj.length){ try { const rk = reg.cur + "|" + state.project.map(p => p.pnu).join(",") + "|" + schR(); if (rk !== _ringKey){ _ringKey = rk; _ringGeom = bufferOf(pj, schR()); } L.geoJSON(_ringGeom, { style:{ color:"#378ADD", weight:1.2, dashArray:"6 5", fill:false }, interactive:false }).addTo(candLayer); } catch(e){} }
     (schoolCands || []).forEach(c => {
       const lay = c.geom.type === "Point" ? L.circleMarker([c.geom.coordinates[1], c.geom.coordinates[0]], { radius:9, color:"#185FA5", weight:1.5, dashArray:"4 3", fillColor:"#378ADD", fillOpacity:0.15 })
         : L.geoJSON(c.geom, { style:{ color:"#185FA5", weight:1.5, dashArray:"5 4", fillColor:"#378ADD", fillOpacity:0.08 } });
@@ -7555,7 +7572,12 @@ async function blockAt(lng, lat){
 
 /* ===== 확인 모드: 자동으로 채운 것 하나씩 ===== */
 const okd = () => (state.okd = state.okd || {});
+let _clV = -1, _clS = null, _clR = null;
 function confirmList(){
+  if (_clS === state && _clV === dataVer && _clR) return _clR;
+  _clR = confirmList0(); _clS = state; _clV = dataVer; return _clR;
+}
+function confirmList0(){
   const out = [], O = okd();
   state.schools.forEach(s => {
     if (!s.parcels.length) out.push({ k:"land:" + s.id, t:`${sName(s)} 교지`, d:"교지가 아직 없어요", go:["school", "in"], at:s.gate, todo:true });
@@ -7630,7 +7652,6 @@ function draftCard(){
       if (main && state.project.length) main.after(c.firstElementChild); else { const hd = Pn.querySelector(".nhead"); if (hd) hd.after(c.firstElementChild); else Pn.prepend(c.firstElementChild); }
       const n = confirmList().length; if (state.schools.length && n){ const b = document.createElement("div"); b.innerHTML = `<button class="btn full" data-nav="check" style="height:44px">확인할 것 ${n}개 보기 →</button>`; const f2 = Pn.querySelector(".card"); if (f2) f2.after(b.firstElementChild); } }
     if (nav.k === "items" && !drawer){ const n = confirmList().length; if (state.schools.length && n){ const b = document.createElement("div"); b.innerHTML = `<button class="btn full" data-nav="check" style="height:40px">확인할 것 ${n}개 · 확인 모드 →</button>`; const at = Pn.querySelector(".nhead"); if (at) at.after(b.firstElementChild); } }
-    try { drawCands(); } catch(e){}
   }; }
 const _ezStepNow0 = ezStepNow; ezStepNow = function(){ return nav.k === "check" ? 3 : _ezStepNow0(); };
 document.addEventListener("click", e => { const t = e.target.closest("button"); if (!t) return; const d = t.dataset;
