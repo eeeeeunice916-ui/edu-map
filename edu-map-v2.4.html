@@ -7181,13 +7181,97 @@ function ezInit(){
 }
 ezInit();
 
+/* ===== 네이버 지도 바탕 (자전거길 레이어) · 새 탭으로 보기 ===== */
+const NV_KEY0 = "880g164msx";   // 네이버 클라우드 Maps Client ID (설정에서 바꿀 수 있어요)
+const NV = Object.assign({ on:false, bike:true, key:"", off:0 }, ls("eduMap.naver") || {}); if (!NV.key) NV.key = NV_KEY0;
+const nvSave = () => ls("eduMap.naver", { on:NV.on, bike:NV.bike, key:NV.key, off:NV.off });
+let nvMap = null, nvBike = null, nvLoading = false, nvTried = "";
+function nvUrl(){ const c = map.getCenter(), z = Math.round(map.getZoom()); return `https://map.naver.com/p?c=${c.lng.toFixed(7)},${c.lat.toFixed(7)},${Math.min(21, Math.max(6, z))},0,0,0,dh`; }
+function nvLoad(param){
+  return new Promise((res, rej) => {
+    if (window.naver && window.naver.maps && window.naver.maps.Map) return res();
+    nvTried = param;
+    const sc = document.createElement("script"); sc.src = `https://oapi.map.naver.com/openapi/v3/maps.js?${param}=${encodeURIComponent(NV.key)}`;
+    sc.onload = () => setTimeout(() => window.naver && window.naver.maps ? res() : rej(new Error("불러오기 실패")), 50); sc.onerror = () => rej(new Error("불러오기 실패"));
+    document.head.appendChild(sc);
+  });
+}
+window.navermap_authFailure = function(){
+  // 새 키(ncpKeyId)로 안 되면 예전 키(ncpClientId)로 한 번 더
+  if (nvTried === "ncpKeyId"){ try { delete window.naver; } catch(e){ window.naver = undefined; } if (nvMap){ nvMap = null; } $("#nvMap").innerHTML = ""; nvLoad("ncpClientId").then(nvMake).catch(() => {}); return; }
+  nvOff(); toast("네이버 지도 인증에 실패했어요. 설정 → 네이버 지도에서 Client ID와, 네이버 클라우드에 등록한 Web 서비스 URL(" + location.origin + ")을 확인해 주세요", 8000);
+};
+function nvMake(){
+  if (nvMap || !window.naver || !naver.maps) return;
+  const c = map.getCenter();
+  nvMap = new naver.maps.Map("nvMap", { center:new naver.maps.LatLng(c.lat, c.lng), zoom:Math.round(map.getZoom()) + (NV.off || 0),
+    draggable:false, pinchZoom:false, scrollWheel:false, keyboardShortcuts:false, disableDoubleTapZoom:true, disableDoubleClickZoom:true, disableTwoFingerTapZoom:true,
+    zoomControl:false, scaleControl:false, mapDataControl:false, mapTypeControl:false, logoControl:true, minZoom:6, maxZoom:21 });
+  nvBike = new naver.maps.BicycleLayer(); if (NV.bike) nvBike.setMap(nvMap);
+  nvSync();
+}
+function nvSync(){ if (!nvMap || !NV.on) return; const c = map.getCenter(); nvMap.setCenter(new naver.maps.LatLng(c.lat, c.lng)); const z = Math.round(map.getZoom()) + (NV.off || 0); if (nvMap.getZoom() !== z) nvMap.setZoom(z, false); }
+const nvShown = () => NV.on && step !== 4 && nav.tab !== "fig";
+function nvApply(){
+  const el = $("#nvMap"), show = nvShown();
+  el.style.display = show ? "block" : "none";
+  map.getContainer().style.background = show ? "transparent" : (ly.base === "none" ? "#ffffff" : "#f2f3f5");
+  if (show){ if (baseLayer) baseLayer.setOpacity(0); if (labelLayer) labelLayer.setOpacity(0); map.options.zoomSnap = 1; map.options.zoomDelta = 1; if (map.getZoom() % 1) map.setZoom(Math.round(map.getZoom()), { animate:false });
+    if (nvMap){ setTimeout(() => { try { nvMap.refresh ? nvMap.refresh() : naver.maps.Event.trigger(nvMap, "resize"); } catch(e){} nvSync(); }, 40); } }
+  else { if (baseLayer) baseLayer.setOpacity(1); if (labelLayer) labelLayer.setOpacity(1); map.options.zoomSnap = 0.25; map.options.zoomDelta = 0.5; }
+  nvChips();
+}
+async function nvOn(){
+  if (!NV.key){ toast("네이버 지도 Client ID를 먼저 넣어 주세요 (설정 → 네이버 지도). 우선 새 탭으로 열어 드릴게요", 6000); window.open(nvUrl(), "_blank"); openNvSet(); return; }
+  NV.on = true; nvSave(); nvApply();
+  if (!nvMap && !nvLoading){ nvLoading = true; nvChips(); try { await nvLoad("ncpKeyId"); nvMake(); } catch(e){ NV.on = false; nvSave(); nvApply(); toast("네이버 지도를 불러오지 못했어요: " + e.message, 5000); } nvLoading = false; nvChips(); }
+  if (step === 4 || nav.tab === "fig") toast("그림 다듬기에서는 브이월드 바탕으로 저장돼요. 넣기 화면에서 네이버 지도가 보여요", 4500);
+}
+function nvOff(){ NV.on = false; nvSave(); nvApply(); }
+function nvChips(){
+  const b = $("#chipNv"), k = $("#chipNvBike"); if (!b) return;
+  b.classList.toggle("on", NV.on); b.textContent = nvLoading ? "네이버 불러오는 중…" : NV.on ? "네이버 지도 ✓" : "네이버 지도";
+  k.style.display = NV.on ? "" : "none"; k.classList.toggle("on", NV.bike); k.textContent = NV.bike ? "자전거길 ✓" : "자전거길";
+}
+function openNvSet(){ if (NAV_EV(nav.k)){ if (nav.tab !== "fig") navGo(nav.k, "fig"); } else navGo("school", "fig"); drawer = true; renderPanel(); setTimeout(() => { const el = $("#nvKey"); if (el){ el.scrollIntoView({ block:"center" }); el.focus(); } }, 80); }
+function nvSetCard(){
+  return `<div class="card fcard"><b class="ft">네이버 지도 (자전거길 확인용)</b>
+    <div class="row" style="gap:6px;margin-top:6px;flex-wrap:nowrap"><input class="inp sm" id="nvKey" value="${esc(NV.key)}" placeholder="네이버 클라우드 Maps Client ID" aria-label="네이버 지도 Client ID"><button class="btn sm" data-ez="nvKeySave">저장</button></div>
+    <div class="muted" style="margin-top:4px">네이버 클라우드 플랫폼 → Maps → Application의 <b>Client ID</b>예요. 그 Application의 Web 서비스 URL에 <b>${esc(location.origin)}</b>을 등록해야 떠요. 저장한 키는 이 컴퓨터에만 남아요.</div>
+    <div class="row" style="gap:6px;margin-top:8px;font-size:13px"><span>위치·축척이 어긋나면</span><button class="btn sm" data-nvoff="-1">−1</button><b style="min-width:28px;text-align:center">${NV.off > 0 ? "+" : ""}${NV.off || 0}</b><button class="btn sm" data-nvoff="1">+1</button></div></div>`;
+}
+function nvInit(){
+  const fr = $("#frame"), m = $("#map"); if (!fr || !m || $("#nvMap")) return;
+  const d = document.createElement("div"); d.id = "nvMap"; d.style.cssText = "position:absolute;inset:0;display:none;pointer-events:none;z-index:0"; fr.insertBefore(d, m);
+  m.style.zIndex = 1;
+  const chips = document.querySelector(".top .chips"), more = $("#chipMore");
+  if (chips){
+    const mk = (id, txt, title) => { const b = document.createElement("button"); b.className = "chip"; b.id = id; b.textContent = txt; if (title) b.title = title; return b; };
+    const b1 = mk("chipNv", "네이버 지도", "바탕을 네이버 지도로 바꿔요 (자전거길 레이어). 다시 누르면 브이월드로"), b2 = mk("chipNvBike", "자전거길"), b3 = mk("chipNvTab", "네이버 새 탭 ↗", "지금 위치를 네이버 지도 웹에서 열어요");
+    if (more) chips.insertBefore(b1, more); else chips.appendChild(b1);
+    chips.insertBefore(b2, b1.nextSibling); chips.insertBefore(b3, b2.nextSibling);
+    b1.addEventListener("click", () => NV.on ? nvOff() : nvOn());
+    b2.addEventListener("click", () => { NV.bike = !NV.bike; nvSave(); if (nvBike) nvBike.setMap(NV.bike ? nvMap : null); nvChips(); });
+    b3.addEventListener("click", () => window.open(nvUrl(), "_blank"));
+  }
+  map.on("move zoom zoomend moveend resize", nvSync);
+  map.on("resize", () => { if (nvMap) try { naver.maps.Event.trigger(nvMap, "resize"); } catch(e){} });
+  document.addEventListener("click", e => { const t = e.target.closest("button"); if (!t) return; const d2 = t.dataset;
+    if (d2.ez === "nvKeySave"){ e.stopImmediatePropagation(); NV.key = ($("#nvKey").value || "").trim(); nvSave(); toast(NV.key ? "네이버 지도 키를 저장했어요. 지도 위 ‘네이버 지도’를 눌러 보세요" : "키를 지웠어요"); }
+    else if (d2.nvoff){ e.stopImmediatePropagation(); NV.off = Math.max(-2, Math.min(2, (NV.off || 0) + Number(d2.nvoff))); nvSave(); nvSync(); renderPanel(); } }, true);
+  if (NV.on){ NV.on = false; nvOn(); } else nvChips();
+}
+/* 설정 서랍에 네이버 카드 · 화면 바뀔 때 바탕 다시 맞추기 */
+{ const _rp1 = renderPanel; renderPanel = function(){ _rp1(); if (drawer){ const Pn = $("#panel"), c = document.createElement("div"); c.innerHTML = nvSetCard(); const cards = Pn.querySelectorAll(".card.fcard"); const at = cards[1] || cards[0]; if (at) at.after(c.firstElementChild); else Pn.appendChild(c.firstElementChild); } if (map && $("#nvMap")) nvApply(); }; }
+{ const _sb0 = setBase; setBase = function(){ _sb0(); if (map && $("#nvMap")) nvApply(); }; }
+
 /* ===== 시작 ===== */
 initMap();
 renderSnapBtns();
 loadOverlayImages();
 if (!state.project.length && nav.k !== "site") nav = { k:"site", tab:"in" };
 navGo(nav.k, nav.tab); hints();
-v7Init(); v71Init(); v73Init(); v74Init();
+v7Init(); v71Init(); v73Init(); v74Init(); nvInit();
 setTimeout(() => state.overlays.filter(o => o.vec).forEach(o => vecOf(o)), 500);
 { const _ng = navGo; navGo = function(k, tab){ if (state.ovFocus && !/^safe/.test(k)) state.ovFocus = null; return _ng(k, tab); }; }
 document.addEventListener("input", e => { const t = e.target; if (t && t.dataset && t.dataset.georound !== undefined && t.type === "range"){ const T = editTarget(mode && mode.id); if (T){ T.obj.cv = { ...(T.obj.cv || {}), round:Number(t.value) || 0 }; T.set(T.get()); const b = t.closest(".row"); if (b) b.querySelectorAll("input").forEach(i => { if (i !== t) i.value = t.value; }); redraw(); } } }, true);
